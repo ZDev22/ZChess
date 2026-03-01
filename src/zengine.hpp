@@ -154,7 +154,6 @@ struct QueueFamilyIndices {
     unsigned int presentFamily;
     bool graphicsFamilyHasValue = false;
     bool presentFamilyHasValue = false;
-    inline bool isComplete() const { return graphicsFamilyHasValue && presentFamilyHasValue; }
 };
 
 /* extern vars */
@@ -197,7 +196,8 @@ VkSurfaceKHR surface_;
 VkQueue graphicsQueue_;
 
 /* renderer vars */
-std::vector<VkCommandBuffer> commandBuffers;
+VkCommandBuffer* commandBuffers;
+unsigned int commandBufferSize;
 unsigned int currentImageIndex;
 
 /* pipeline vars */
@@ -875,7 +875,7 @@ QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
             indices.presentFamily = i;
             indices.presentFamilyHasValue = true;
         }
-        if (indices.isComplete()) { break; }
+        if (indices.graphicsFamilyHasValue && indices.presentFamilyHasValue) { break; }
         i++;
     }
     return indices;
@@ -1032,14 +1032,15 @@ void updateTexture(unsigned char index) {
 }
 
 void createCommandBuffers() {
-    commandBuffers.resize(swapChain->getSwapChainImageSize());
+    commandBufferSize = swapChain->getSwapChainImageSize();
+    commandBuffers = (VkCommandBuffer*)malloc(commandBufferSize * sizeof(VkCommandBuffer));
 
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandPool = commandPool;
-    allocInfo.commandBufferCount = (unsigned int)commandBuffers.size();
-    vkAllocateCommandBuffers(device_, &allocInfo, commandBuffers.data());
+    allocInfo.commandBufferCount = commandBufferSize;
+    vkAllocateCommandBuffers(device_, &allocInfo, commandBuffers);
 }
 
 VkShaderModule createShaderModule(const char* filepath) {
@@ -1050,7 +1051,7 @@ VkShaderModule createShaderModule(const char* filepath) {
     file.seekg(0);
 
     unsigned int buffer[fileSize / 4];
-    file.read(reinterpret_cast<char*>(buffer), fileSize);
+    file.read((char*)buffer, fileSize);
 
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -1212,16 +1213,16 @@ void ZEngineInit() {
         SwapChainSupportDetails swapChainSupport = querySwapChainSupport(devices[i]);
         swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
         ZENGINE_PRINT1("SwapChain formats: " << swapChainSupport.formats.size() << ", present modes: " << swapChainSupport.presentModes.size() << std::endl);
-        for (unsigned char i = 0; i < swapChainSupport.presentModes.size(); i++) {
-            if (swapChainSupport.presentModes[i] == 0) { ZENGINE_PRINT2("    - GPU supports VSync\n"); }
-            else if (swapChainSupport.presentModes[i] == 2) { ZENGINE_PRINT2("    - GPU can disable VSync\n"); }
+        for (VkPresentModeKHR present : swapChainSupport.presentModes) {
+            if (present == 0) { ZENGINE_PRINT2("    - GPU supports VSync\n"); }
+            else if (present == 2) { ZENGINE_PRINT2("    - GPU can disable VSync\n"); }
         }
         newScore += (swapChainSupport.formats.size() * swapChainSupport.presentModes.size());
 
         VkPhysicalDeviceFeatures supportedFeatures;
         vkGetPhysicalDeviceFeatures(devices[i], &supportedFeatures);
-        if (!(indices.isComplete() && swapChainAdequate)) { newScore = 0; }
-        if (newScore > highScore) {
+        if (!(indices.graphicsFamilyHasValue && indices.presentFamilyHasValue && swapChainAdequate)) { newScore = 0; }
+        else if (newScore > highScore) {
             highScore = newScore;
             physicalDevice = devices[i];
             break;
@@ -1237,11 +1238,11 @@ void ZEngineInit() {
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     float queuePriority = 1.0f;
-
+ 
     std::vector<unsigned int> uniqueQueueFamilies;
     uniqueQueueFamilies.emplace_back(indices.graphicsFamily);
     if (indices.presentFamily != indices.graphicsFamily) { uniqueQueueFamilies.emplace_back(indices.presentFamily); }
-
+ 
     for (unsigned int queueFamily : uniqueQueueFamilies) {
         VkDeviceQueueCreateInfo queueCreateInfo{};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -1511,9 +1512,9 @@ void ZEngineRender() {
         vkDeviceWaitIdle(device_);
         oldSwapChain = swapChain->getSwapChain();
         swapChain = std::make_unique<SwapChain>();
-        if (swapChain->getSwapChainImageSize() != commandBuffers.size()) {
-            vkFreeCommandBuffers(device_, commandPool, (unsigned int)commandBuffers.size(), commandBuffers.data());
-            commandBuffers.clear();
+        if (swapChain->getSwapChainImageSize() != commandBufferSize) {
+            vkFreeCommandBuffers(device_, commandPool, commandBufferSize, commandBuffers);
+            free(commandBuffers);
             createCommandBuffers();
         }
 
@@ -1557,27 +1558,27 @@ void ZEngineRender() {
     unsigned int instance = 0;
     unsigned int instanceCount = 0;
 
-    for (unsigned int i = 0; i < sprites.size(); ++i) {
-        if (sprites[i]->visible) {
-            sprites[i]->setRotationMatrix();
-            if (sprites[i]->model == lastModel) { instanceCount++; } /* model is the same, add it to the instance */
-            else { /* model changed, draw the batch and count again */
-                lastModel = sprites[i]->model;
+    for (Sprite* sprite : sprites) {
+        if (sprite->visible) {
+            sprite->setRotationMatrix();
+            if (sprite->model == lastModel) { instanceCount++; }
+            else {
+                lastModel = sprite->model;
                 if (instanceCount > 0) {
                     lastModel->bind(commandBuffer);
                     lastModel->draw(commandBuffer, instanceCount, instance);
                 }
-                instance = i;
+                instance = sprite->ID;
                 instanceCount = 1;
             }
         }
-        else { /* this is the best way to not draw invisible sprites */
+        else {
             lastModel->bind(commandBuffer);
             lastModel->draw(commandBuffer, instanceCount, instance);
             instanceCount = 0;
         }
     }
-    if (instanceCount > 0) { /* draw the last few sprites not accounted for by visibility or model switching */
+    if (instanceCount > 0) {
         lastModel->bind(commandBuffer);
         lastModel->draw(commandBuffer, instanceCount, instance);
     }
@@ -1592,8 +1593,8 @@ void ZEngineDeinit() {
     ZEngineClose = true;
     ZENGINE_PRINT3("Waiting for GPU...\n"); vkDeviceWaitIdle(device_);
 
-    ZENGINE_PRINT2("Freeing command buffers\n"); vkFreeCommandBuffers(device_, commandPool, (unsigned int)commandBuffers.size(), commandBuffers.data());
-    ZENGINE_PRINT3("Clearing command buffers\n"); commandBuffers.clear();
+    ZENGINE_PRINT2("Freeing command buffers\n"); vkFreeCommandBuffers(device_, commandPool, commandBufferSize, commandBuffers);
+    ZENGINE_PRINT3("Clearing command buffers\n"); free(commandBuffers);
 
     ZENGINE_PRINT3("Freeing graphics pipeline\n"); vkDestroyPipeline(device_, graphicsPipeline, nullptr);
     ZENGINE_PRINT3("Freeing pipeline layout\n");   vkDestroyPipelineLayout(device_, pipelineLayout, nullptr);
@@ -1602,7 +1603,7 @@ void ZEngineDeinit() {
     ZENGINE_PRINT2("Freeing textures\n"); for (unsigned int i = 0; i < ZENGINE_MAX_TEXTURES; i++) { spriteTextures[i].reset(); }
     ZENGINE_PRINT2("Unmaping sprite data buffer\n"); spriteDataBuffer->unmap();
     ZENGINE_PRINT3("Freeing sprite data buffer\n"); spriteDataBuffer.reset();
-    ZENGINE_PRINT2("Freeing sprites\n"); for (Sprite* sprite: sprites) delete sprite;
+    ZENGINE_PRINT2("Freeing sprites\n"); for (Sprite* sprite : sprites) delete sprite;
     ZENGINE_PRINT3("Freeing square model\n"); squareModel.reset();
     ZENGINE_PRINT3("Freeing swapchain\n"); swapChain.reset();
 

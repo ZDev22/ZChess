@@ -2,7 +2,7 @@
 
 An example implementation on how to init and use zengine, as well as a few zdeps!
 
-#define FPS_CAP 60.f // set the framerate (.5f / FPS_CAP) dont define for no FPS cap
+#define FPS_CAP 60.f // set the framerate, dont define for no FPS cap
 */
 
 #if true // render the screen and tick the game (disable if it's a terminal game)
@@ -13,6 +13,7 @@ An example implementation on how to init and use zengine, as well as a few zdeps
 #define ZENGINE_DISABLE_VSYNC
 //#define ZENGINE_FORCE_SHADER_RECOMPILATION
 //#define ZENGINE_NEVER_RECOMPILE_SHADERS
+#define ZENGINE_MAX_FRAMES_IN_FLIGHT 2
 #define ZENGINE_DEBUG 0
 #define ZENGINE_MAX_SPRITES 100000
 #define ZENGINE_MAX_TEXTURES 100
@@ -46,7 +47,6 @@ std::chrono::high_resolution_clock::time_point fpsLastTime;
 
 void render();
 int main() {
-    /* sanity check */
     #ifdef FPS_CAP
         deltaTime = 1.f / FPS_CAP;
     #endif

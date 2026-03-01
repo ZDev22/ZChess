@@ -49,7 +49,7 @@ public:
                     camera.zoom[1] -= .007f;
                 }
 
-                if (bird->position[1] > 1.f || sprites[0]->position[1] < -1.f) {
+                if (bird->position[1] > 1.f || bird->position[1] < -1.f) {
                     flappyBirdDead = true;
                     playSound(&audio, "assets/sounds/hit.mp3");
                     sprites[sprites.size() - 1]->setTexture(createText(0, "something", 32));
