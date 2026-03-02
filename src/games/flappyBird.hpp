@@ -21,14 +21,12 @@ public:
         loadFont("assets/fonts/Bullpen3D.ttf", 32.f);
         for (unsigned char i = 0; i < 10; i++) { createSprite(squareModel, 1, -.7f, -.2f, .1f, .1f, 0.f); }
 
-        bird = new Sprite();
-        initSprite(bird);
-        sprites[0] = bird;
+        bird = &sprites[0];
 
         bird->position[0] = -.7f;
         bird->position[1] = -.2f;
         bird->setTexture(std::make_unique<Texture>("flappyBird.png"));
-        sprites[1]->setTexture(std::make_unique<Texture>("pipe.png"));
+        sprites[1].setTexture(std::make_unique<Texture>("pipe.png"));
     }
 
     void tick() {
@@ -44,7 +42,7 @@ public:
 
                     playSound(&audio, "assets/sounds/chirp.mp3");
                     createSprite(squareModel, 3, 0.f, 0.f, .5f, .2f, 0.f);
-                    sprites[sprites.size() - 1]->setTexture(createText(0, "ZDEV", 32));
+                    sprites[spritesSize - 1].setTexture(createText(0, "ZDEV", 32));
                     camera.zoom[0] -= .007f;
                     camera.zoom[1] -= .007f;
                 }
@@ -52,7 +50,7 @@ public:
                 if (bird->position[1] > 1.f || bird->position[1] < -1.f) {
                     flappyBirdDead = true;
                     playSound(&audio, "assets/sounds/hit.mp3");
-                    sprites[sprites.size() - 1]->setTexture(createText(0, "something", 32));
+                    sprites[spritesSize - 1].setTexture(createText(0, "something", 32));
                 }
             }
             else if (bird->position[1] > 2.5f) {
@@ -63,17 +61,17 @@ public:
                 flappyBirdDead = false;
             }
 
-            for (unsigned int i = 1; i < sprites.size() / 2; i++) {
+            for (unsigned int i = 1; i < spritesSize / 2; i++) {
                 unsigned int index = ((i - 1) * 2) + 1;
-                sprites[index]->position[0] -= .5f * deltaTime;
-                if (sprites[index]->position[0] < -1.5f) {
-                    sprites[index]->position[0] = 1.5f;
-                    sprites[index]->position[1] = Random(4, 14) / 10.f;
+                sprites[index].position[0] -= .5f * deltaTime;
+                if (sprites[index].position[0] < -1.5f) {
+                    sprites[index].position[0] = 1.5f;
+                    sprites[index].position[1] = Random(4, 14) / 10.f;
                 }
-                sprites[index + 1]->position[0] = sprites[index]->position[0];
-                sprites[index + 1]->position[1] = sprites[index]->position[1] - 2.f;
+                sprites[index + 1].position[0] = sprites[index].position[0];
+                sprites[index + 1].position[1] = sprites[index].position[1] - 2.f;
 
-                 if (flappyBirdStarted && !flappyBirdDead && (zcollide_checkSquareCollision(sprites[index], bird) || zcollide_checkSquareCollision(sprites[index + 1], bird))) {
+                 if (flappyBirdStarted && !flappyBirdDead && (zcollide_checkSquareCollision(&sprites[index], bird) || zcollide_checkSquareCollision(&sprites[index + 1], bird))) {
                     flappyBirdDead = true;
                     flappyBirdSpeedY = -1.5f;
                     bird->rotation = 60.f;

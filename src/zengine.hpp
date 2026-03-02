@@ -160,7 +160,8 @@ struct QueueFamilyIndices {
 extern float deltaTime;
 extern bool ZEngineClose;
 extern std::unique_ptr<Texture> spriteTextures[ZENGINE_MAX_TEXTURES];
-extern std::vector<Sprite*> sprites;
+extern Sprite sprites[ZENGINE_MAX_SPRITES];
+extern unsigned int spritesSize;
 extern std::shared_ptr<Model> squareModel;
 extern VkDevice device_;
 extern ma_engine audio;
@@ -173,9 +174,6 @@ ma_engine audio;
 
 float deltaTime = 0.f; /* deltaTime, do what you will. Example implementation in main.cpp */
 bool ZEngineClose = false; /* flag to show when the engine is closing */
-
-/* sprite var */
-std::vector<Sprite*> sprites;
 
 /* texture vecs */
 std::unique_ptr<Texture> spriteTextures[ZENGINE_MAX_TEXTURES];
@@ -266,7 +264,7 @@ struct alignas(16) Sprite {
     bool visible;
 
     /* helper functions */
-    void operator=(Sprite& sprite) { *this = sprite; }
+    void operator=(Sprite* sprite) { *this = sprite; }
 
     constexpr void setRotationMatrix() {
         rotationMatrix[0] = cos(rotation * .01745329f);
@@ -279,6 +277,13 @@ struct alignas(16) Sprite {
         updateTexture(textureIndex);
     }
 };
+
+#ifdef ZENGINE_IMPLEMENTATION /* sprite vars */
+
+Sprite sprites[ZENGINE_MAX_SPRITES];
+unsigned int spritesSize = 0;
+
+#endif
 
 struct SwapChain {
 public:
@@ -1065,26 +1070,27 @@ VkShaderModule createShaderModule(const char* filepath) {
 }
 
 void createSprite(std::shared_ptr<Model>& model, unsigned int textureIndex, float posx, float posy, float scalex, float scaley, float rotation) {
-    if (sprites.size() >= ZENGINE_MAX_SPRITES) { return; }
-    Sprite* sprite = new Sprite();
+    if (spritesSize >= ZENGINE_MAX_SPRITES) { return; }
 
-    sprite->model = model;
-    sprite->visible = true;
+    sprites[spritesSize].model = model;
+    sprites[spritesSize].visible = true;
 
-    sprite->position[0] = posx;
-    sprite->position[1] = posy;
-    sprite->scale[0] = scalex;
-    sprite->scale[1] = scaley;
-    sprite->rotation = rotation;
-    sprite->textureIndex = textureIndex;
-    sprite->ID = sprites.size();
+    sprites[spritesSize].position[0] = posx;
+    sprites[spritesSize].position[1] = posy;
+    sprites[spritesSize].scale[0] = scalex;
+    sprites[spritesSize].scale[1] = scaley;
+    sprites[spritesSize].rotation = rotation;
+    sprites[spritesSize].textureIndex = textureIndex;
+    sprites[spritesSize].ID = spritesSize;
 
-    sprites.emplace_back(sprite);
+    spritesSize++;
 }
 
 void createSprite(Sprite* sprite) {
-    if (sprites.size() >= ZENGINE_MAX_SPRITES) { return; }
-    sprites.emplace_back(sprite);
+    if (spritesSize >= ZENGINE_MAX_SPRITES) { return; }
+    createSprite(squareModel, 0, 0.f, 0.f, .1f, .1f, 0);
+    sprite = &sprites[spritesSize - 1];
+    spritesSize++;
 }
 
 void initSprite(Sprite* sprite) {
@@ -1096,20 +1102,27 @@ void initSprite(Sprite* sprite) {
     sprite->scale[1] = .1f;
     sprite->rotation = 0.f;
     sprite->textureIndex = 0;
-    sprite->ID = sprites.size();
+    sprite->ID = spritesSize - 1;
 }
 
 void deleteSprite(Sprite* sprite) {
     unsigned int deleteID = sprite->ID;
     delete sprite;
-    sprites.erase(sprites.begin() + deleteID);
-    for (unsigned int i = deleteID; i < sprites.size(); i++) sprites[i]->ID--;
+    for (unsigned int i = deleteID; i < spritesSize - 1; i++) {
+        sprites[i] = sprites[i + 1];
+        sprites[i].ID--;
+    }
+    spritesSize--;
+    sprites[spritesSize].model.reset();
 }
 
 void deleteSprite(unsigned int sprite) {
-    delete sprites[sprite];
-    sprites.erase(sprites.begin() + sprite);
-    for (unsigned int i = sprite; i < sprites.size(); i++) sprites[i]->ID--;
+    for (unsigned int i = sprite; i < spritesSize; i++) {
+        sprites[i] = sprites[i + 1];
+        sprites[i].ID--;
+    }
+    spritesSize--;
+    sprites[spritesSize].model.reset();
 }
 
 /* ZENGINE */
@@ -1433,15 +1446,12 @@ void ZEngineInit() {
     ZENGINE_PRINT2("Initing sprites...\n");
 
     VkDescriptorImageInfo imageInfos[ZENGINE_MAX_TEXTURES];
-    std::unique_ptr<Texture> texture = std::make_unique<Texture>("e.png");
-    VkImageView textureImage = texture->getImageView();
-    VkSampler textureSampler = texture->getSampler();
     for (unsigned int i = 0; i < ZENGINE_MAX_TEXTURES; i++) {
-        spriteTextures[i] = std::move(texture);
+        spriteTextures[i] = std::make_unique<Texture>("e.png");;
         VkDescriptorImageInfo& imageInfo = imageInfos[i];
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = textureImage;;
-        imageInfo.sampler = textureSampler;
+        imageInfo.imageView = spriteTextures[i]->getImageView();
+        imageInfo.sampler = spriteTextures[i]->getSampler();
     }
 
     /* init sprites */
@@ -1460,7 +1470,7 @@ void ZEngineInit() {
     VkDeviceSize bufferSize = SIZEOF_SPRITE_DATA * ZENGINE_MAX_SPRITES;
     spriteDataBuffer = std::make_unique<Buffer>(bufferSize, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     spriteDataBuffer->map();
-    spriteDataBuffer->writeToBuffer(sprites.data(), SIZEOF_SPRITE_DATA * sprites.size());
+    spriteDataBuffer->writeToBuffer(sprites, SIZEOF_SPRITE_DATA * spritesSize);
 
     ma_engine_init(nullptr, &audio); /* init audio */
 
@@ -1501,9 +1511,9 @@ void ZEngineInit() {
 }
 
 void ZEngineRender() {
-    char* spriteData = (char*)malloc(SIZEOF_SPRITE_DATA * sprites.size());
-    for (unsigned int i = 0; i < sprites.size(); i++) memcpy(spriteData + i * SIZEOF_SPRITE_DATA, sprites[i], SIZEOF_SPRITE_DATA);
-    spriteDataBuffer->writeToBuffer(spriteData, SIZEOF_SPRITE_DATA * sprites.size());
+    char* spriteData = (char*)malloc(SIZEOF_SPRITE_DATA * spritesSize);
+    for (unsigned int i = 0; i < spritesSize; i++) memcpy(spriteData + i * SIZEOF_SPRITE_DATA, &sprites[i], SIZEOF_SPRITE_DATA);
+    spriteDataBuffer->writeToBuffer(spriteData, SIZEOF_SPRITE_DATA * spritesSize);
     free(spriteData);
 
     /* resize window */
@@ -1558,17 +1568,17 @@ void ZEngineRender() {
     unsigned int instance = 0;
     unsigned int instanceCount = 0;
 
-    for (Sprite* sprite : sprites) {
-        if (sprite->visible) {
-            sprite->setRotationMatrix();
-            if (sprite->model == lastModel) { instanceCount++; }
+    for (unsigned int i = 0; i < spritesSize; i++) {
+        if (sprites[i].visible) {
+            sprites[i].setRotationMatrix();
+            if (sprites[i].model == lastModel) { instanceCount++; }
             else {
-                lastModel = sprite->model;
+                lastModel = sprites[i].model;
                 if (instanceCount > 0) {
                     lastModel->bind(commandBuffer);
                     lastModel->draw(commandBuffer, instanceCount, instance);
                 }
-                instance = sprite->ID;
+                instance = i;
                 instanceCount = 1;
             }
         }
@@ -1603,8 +1613,8 @@ void ZEngineDeinit() {
     ZENGINE_PRINT2("Freeing textures\n"); for (unsigned int i = 0; i < ZENGINE_MAX_TEXTURES; i++) { spriteTextures[i].reset(); }
     ZENGINE_PRINT2("Unmaping sprite data buffer\n"); spriteDataBuffer->unmap();
     ZENGINE_PRINT3("Freeing sprite data buffer\n"); spriteDataBuffer.reset();
-    ZENGINE_PRINT2("Freeing sprites\n"); for (Sprite* sprite : sprites) delete sprite;
-    ZENGINE_PRINT3("Freeing square model\n"); squareModel.reset();
+    ZENGINE_PRINT3("Freeing models\n"); squareModel.reset();
+    for (unsigned int i = 0; i < spritesSize; i++) sprites[i].model.reset();
     ZENGINE_PRINT3("Freeing swapchain\n"); swapChain.reset();
 
     ZENGINE_PRINT3("Freeing descriptor set layout\n"); vkDestroyDescriptorSetLayout(device_, descriptorSetLayout, nullptr);
