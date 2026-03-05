@@ -235,7 +235,7 @@ void deleteSprite(Sprite* sprite);
 void deleteSprite(unsigned int sprite);
 
 /* texture funcs*/
-void updateTexture(unsigned char index);
+void updateTexture(unsigned int index);
 
 /* model funcs*/
 inline const Vertex* getVertices(const std::shared_ptr<Model>& model);
@@ -1025,7 +1025,7 @@ void createImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFla
 inline const Vertex* getVertices(const std::shared_ptr<Model>& model) { return model->getVertices(); }
 inline unsigned int getVerticySize(const std::shared_ptr<Model>& model) { return model->size(); }
 
-void updateTexture(unsigned char index) {
+void updateTexture(unsigned int index) {
     Texture* texture = spriteTextures[index].get();
     VkDescriptorImageInfo imageInfo{};
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1520,11 +1520,6 @@ void ZEngineInit() {
 }
 
 void ZEngineRender() {
-    char* spriteData = (char*)malloc(SIZEOF_SPRITE_DATA * spritesSize);
-    for (unsigned int i = 0; i < spritesSize; i++) memcpy(spriteData + i * SIZEOF_SPRITE_DATA, &sprites[i], SIZEOF_SPRITE_DATA);
-    spriteDataBuffer->writeToBuffer(spriteData, SIZEOF_SPRITE_DATA * spritesSize);
-    free(spriteData);
-
     /* resize window */
     if (swapChain->acquireNextImage(&currentImageIndex) == VK_ERROR_OUT_OF_DATE_KHR || framebufferResized) {
         /* recreate swapchain */
@@ -1573,12 +1568,14 @@ void ZEngineRender() {
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &spriteDataDescriptorSet, 0, nullptr);
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Camera), &camera);
 
-    std::shared_ptr<Model> lastModel = squareModel;
+    char* spriteData = (char*)malloc(SIZEOF_SPRITE_DATA * spritesSize);
+    std::shared_ptr<Model> lastModel = sprites[0].model;
     unsigned int instance = 0;
     unsigned int instanceCount = 0;
 
     for (unsigned int i = 0; i < spritesSize; i++) {
         if (sprites[i].visible) {
+            memcpy(spriteData + i * SIZEOF_SPRITE_DATA, &sprites[i], SIZEOF_SPRITE_DATA);
             sprites[i].setRotationMatrix();
             if (sprites[i].model == lastModel) { instanceCount++; }
             else {
@@ -1601,6 +1598,9 @@ void ZEngineRender() {
         lastModel->bind(commandBuffer);
         lastModel->draw(commandBuffer, instanceCount, instance);
     }
+
+    spriteDataBuffer->writeToBuffer(spriteData, SIZEOF_SPRITE_DATA * spritesSize);
+    free(spriteData);
 
     /* end frame */
     vkCmdEndRenderPass(commandBuffer);
