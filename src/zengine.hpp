@@ -184,6 +184,7 @@ bool ZEngineClose = false; /* flag to show when the engine is closing */
 
 /* texture vecs */
 std::unique_ptr<Texture> spriteTextures[ZENGINE_MAX_TEXTURES];
+char* spriteData;
 
 /* window vars */
 bool framebufferResized = false;
@@ -266,9 +267,8 @@ struct alignas(16) Sprite {
     float rotation;
 
     /* CPU-side only */
-    std::shared_ptr<Model> model;
-    Texture* texture;
-    bool visible;
+    std::shared_ptr<Model> model = squareModel;
+    bool visible = true;
 
     /* helper functions */
     void operator=(Sprite* sprite) { *this = sprite; }
@@ -309,7 +309,7 @@ public:
         }
 
         windowExtent = swapChainSupport.capabilities.currentExtent;
-        unsigned int imageCount = swapChainSupport.capabilities.minImageCount + 1;
+        imageCount = swapChainSupport.capabilities.minImageCount + 1;
         if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) { imageCount = swapChainSupport.capabilities.maxImageCount; }
 
         VkSwapchainCreateInfoKHR createInfo = {};
@@ -348,15 +348,15 @@ public:
 
         ZENGINE_THROW(vkCreateSwapchainKHR(device_, &createInfo, nullptr, &swapChain));
         ZENGINE_THROW(vkGetSwapchainImagesKHR(device_, swapChain, &imageCount, nullptr));
-        swapChainImages.resize(imageCount);
-        ZENGINE_THROW(vkGetSwapchainImagesKHR(device_, swapChain, &imageCount, swapChainImages.data()));
+        swapChainImages = (VkImage*)malloc(imageCount * sizeof(VkImage));
+        ZENGINE_THROW(vkGetSwapchainImagesKHR(device_, swapChain, &imageCount, swapChainImages));
         swapChainImageFormat = surfaceFormat.format;
 
         /* create image views*/
-        swapChainImageViews.resize(swapChainImages.size());
+        swapChainImageViews = (VkImageView*)malloc(imageCount * sizeof(VkImageView));
 
         VkImageViewCreateInfo viewInfo{};
-        for (unsigned int i = 0; i < swapChainImages.size(); i++) {
+        for (unsigned int i = 0; i < imageCount; i++) {
             viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
             viewInfo.image = swapChainImages[i];
             viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -426,11 +426,11 @@ public:
         ZENGINE_THROW(vkCreateRenderPass(device_, &renderPassInfo, nullptr, &renderPass));
 
         /* create depth resources */
-        depthImages.resize(swapChainImages.size());
-        depthImageMemorys.resize(swapChainImages.size());
-        depthImageViews.resize(swapChainImages.size());
+        depthImages = (VkImage*)malloc(imageCount * sizeof(VkImage));
+        depthImageMemorys = (VkDeviceMemory*)malloc(imageCount * sizeof(VkDeviceMemory));
+        depthImageViews = (VkImageView*)malloc(imageCount * sizeof(VkImageView));
 
-        for (unsigned int i = 0; i < depthImages.size(); i++) {
+        for (unsigned int i = 0; i < imageCount; i++) {
             VkImageCreateInfo imageInfo{};
             imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
             imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -462,9 +462,11 @@ public:
         }
 
         /* create frame buffers*/
-        swapChainFramebuffers.resize(swapChainImages.size());
+        imagesInFlight = (VkFence*)malloc(imageCount * sizeof(VkFence));
+        swapChainFramebuffers = (VkFramebuffer*)malloc(imageCount * sizeof(VkFramebuffer));
 
-        for (unsigned int i = 0; i < swapChainImages.size(); i++) {
+        for (unsigned int i = 0; i < imageCount; i++) {
+            imagesInFlight[i] = VK_NULL_HANDLE;
             const VkImageView attachments[2] = { swapChainImageViews[i], depthImageViews[i]};
 
             VkFramebufferCreateInfo framebufferInfo{};
@@ -477,12 +479,6 @@ public:
             framebufferInfo.layers = 1;
             vkCreateFramebuffer(device_, &framebufferInfo, nullptr, &swapChainFramebuffers[i]);
         }
-
-        /* create semaphores */
-        imageAvailableSemaphores.resize(ZENGINE_MAX_FRAMES_IN_FLIGHT);
-        renderFinishedSemaphores.resize(ZENGINE_MAX_FRAMES_IN_FLIGHT);
-        inFlightFences.resize(ZENGINE_MAX_FRAMES_IN_FLIGHT);
-        imagesInFlight.resize(swapChainImages.size(), VK_NULL_HANDLE);
 
         VkSemaphoreCreateInfo semaphoreInfo = {};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -498,24 +494,31 @@ public:
         }
     }
     ~SwapChain() {
-        ZENGINE_PRINT3(" - Destroying framebuffers\n"); for (VkFramebuffer framebuffer : swapChainFramebuffers) { vkDestroyFramebuffer(device_, framebuffer, nullptr); }
-        ZENGINE_PRINT3(" - Destroying depth data\n");
-
-        for (unsigned char i = 0; i < depthImages.size(); i++) {
+        for (unsigned int i = 0; i < imageCount; i++) { 
+            vkDestroyFramebuffer(device_, swapChainFramebuffers[i], nullptr);
             vkDestroyImageView(device_, depthImageViews[i], nullptr);
             vkDestroyImage(device_, depthImages[i], nullptr);
             vkFreeMemory(device_, depthImageMemorys[i], nullptr);
+            vkDestroyImageView(device_, swapChainImageViews[i], nullptr);
         }
 
-        ZENGINE_PRINT3(" - Destroying image views\n"); for (VkImageView imageView : swapChainImageViews) { vkDestroyImageView(device_, imageView, nullptr); }
-        ZENGINE_PRINT3(" - Destroying render pass\n"); vkDestroyRenderPass(device_, renderPass, nullptr);
-        if (!ZEngineClose) { ZENGINE_PRINT3(" - Destroying swapchain KHR\n"); vkDestroySwapchainKHR(device_, swapChain, nullptr); }
-        ZENGINE_PRINT3(" - Destroying semaphores\n");
+        vkDestroyRenderPass(device_, renderPass, nullptr);
+        if (!ZEngineClose) vkDestroySwapchainKHR(device_, swapChain, nullptr);
+
         for (unsigned char i = 0; i < ZENGINE_MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroySemaphore(device_, imageAvailableSemaphores[i], nullptr);
             vkDestroySemaphore(device_, renderFinishedSemaphores[i], nullptr);
             vkDestroyFence(device_, inFlightFences[i], nullptr);
         }
+
+        ZENGINE_PRINT3(" - Freeing memory\n");
+        free(swapChainImages);
+        free(swapChainFramebuffers);
+        free(depthImageViews);
+        free(depthImages);
+        free(depthImageMemorys);
+        free(swapChainImageViews);
+        free(imagesInFlight);
     }
 
     SwapChain(const SwapChain&) = delete;
@@ -561,7 +564,7 @@ public:
     inline VkFramebuffer getFrameBuffer(unsigned long index) const { return swapChainFramebuffers[index]; }
     inline VkImageView getImageView(int index) const { return swapChainImageViews[index]; }
     inline VkRenderPass getRenderPass() const { return renderPass; }
-    inline unsigned int getSwapChainImageSize() const { return swapChainImages.size(); }
+    inline unsigned long getSwapChainImageSize() const { return imageCount; }
     inline VkSwapchainKHR getSwapChain() const { return swapChain; }
 
 private:
@@ -569,17 +572,18 @@ private:
     VkFormat swapChainImageFormat;
     VkFormat swapChainDepthFormat;
     VkRenderPass renderPass;
-    std::vector<VkFramebuffer> swapChainFramebuffers;
-    std::vector<VkImage> depthImages;
-    std::vector<VkDeviceMemory> depthImageMemorys;
-    std::vector<VkImageView> depthImageViews;
-    std::vector<VkImage> swapChainImages;
-    std::vector<VkImageView> swapChainImageViews;
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-    std::vector<VkFence> inFlightFences;
-    std::vector<VkFence> imagesInFlight;
+    VkFramebuffer* swapChainFramebuffers = nullptr;
+    VkImage* depthImages = nullptr;
+    VkDeviceMemory* depthImageMemorys = nullptr;
+    VkImageView* depthImageViews = nullptr;
+    VkImage* swapChainImages = nullptr;
+    VkImageView* swapChainImageViews = nullptr;
+    VkSemaphore imageAvailableSemaphores[ZENGINE_MAX_FRAMES_IN_FLIGHT];
+    VkSemaphore renderFinishedSemaphores[ZENGINE_MAX_FRAMES_IN_FLIGHT];
+    VkFence inFlightFences[ZENGINE_MAX_FRAMES_IN_FLIGHT];
+    VkFence* imagesInFlight = nullptr;
     unsigned int currentFrame = 0;
+    unsigned int imageCount = 0;
 };
 
 struct Texture {
@@ -811,7 +815,7 @@ public:
         }
     }
 
-    inline void writeToBuffer(const void* data, unsigned int size) { memcpy(mapped, data, size); }
+    inline void write(const void* data, unsigned int size) { memcpy(mapped, data, size); }
     inline VkBuffer getBuffer() const { return buffer; }
 
 private:
@@ -839,7 +843,7 @@ public:
 
         vertexBuffer = std::make_unique<Buffer>(sizeof(Vertex) * verticySize, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         vertexBuffer->map();
-        vertexBuffer->writeToBuffer((const void*)vertices, (unsigned int)(sizeof(Vertex) * verticySize));
+        vertexBuffer->write((const void*)vertices, (unsigned int)(sizeof(Vertex) * verticySize));
         vertexBuffer->unmap();
     }
     ~Model() { delete[] vertices; }
@@ -1044,7 +1048,7 @@ void updateTexture(unsigned int index) {
 }
 
 void createCommandBuffers() {
-    commandBufferSize = swapChain->getSwapChainImageSize();
+    commandBufferSize = (unsigned int)swapChain->getSwapChainImageSize();
     commandBuffers = (VkCommandBuffer*)malloc(commandBufferSize * sizeof(VkCommandBuffer));
 
     VkCommandBufferAllocateInfo allocInfo{};
@@ -1080,7 +1084,6 @@ void createSprite(std::shared_ptr<Model>& model, unsigned int textureIndex, floa
     if (spritesSize >= ZENGINE_MAX_SPRITES) { return; }
 
     sprites[spritesSize].model = model;
-    sprites[spritesSize].visible = true;
 
     sprites[spritesSize].position[0] = posx;
     sprites[spritesSize].position[1] = posy;
@@ -1101,8 +1104,6 @@ void createSprite(Sprite* sprite) {
 }
 
 void initSprite(Sprite* sprite) {
-    sprite->model = squareModel;
-    sprite->visible = true;
     sprite->position[0] = 0.f;
     sprite->position[1] = 0.f;
     sprite->scale[0] = .1f;
@@ -1110,11 +1111,11 @@ void initSprite(Sprite* sprite) {
     sprite->rotation = 0.f;
     sprite->textureIndex = 0;
     sprite->depth = spritesSize - 1;
+    sprite->model = squareModel;
 }
 
 void deleteSprite(Sprite* sprite) {
     unsigned int deleteID = sprite->depth;
-    delete sprite;
     for (unsigned int i = deleteID; i < spritesSize - 1; i++) {
         sprites[i] = sprites[i + 1];
         sprites[i].depth--;
@@ -1220,7 +1221,7 @@ void ZEngineInit() {
     short highScore = 0;
     for (unsigned int i = 0; i < deviceCount; ++i) {
         /* check if device is suitable, and score it */
-        short newScore = 0;
+        unsigned short newScore = 0;
         QueueFamilyIndices indices = findQueueFamilies(devices[i]);
         unsigned int extensionCount = 0;
         bool swapChainAdequate = false;
@@ -1237,7 +1238,7 @@ void ZEngineInit() {
             if (present == 0) { ZENGINE_PRINT2("    - GPU supports VSync\n"); }
             else if (present == 2) { ZENGINE_PRINT2("    - GPU can disable VSync\n"); }
         }
-        newScore += (swapChainSupport.formats.size() * swapChainSupport.presentModes.size());
+        newScore += (unsigned short)(swapChainSupport.formats.size() * swapChainSupport.presentModes.size());
 
         VkPhysicalDeviceFeatures supportedFeatures;
         vkGetPhysicalDeviceFeatures(devices[i], &supportedFeatures);
@@ -1470,6 +1471,7 @@ void ZEngineInit() {
         -.5f, .5f,  // Top-Right
         .5f, .5f    // Top-Left
     };
+    spriteData = (char*)malloc(SIZEOF_SPRITE_DATA * ZENGINE_MAX_SPRITES);
     squareModel = std::make_shared<Model>(positions, 8);
     createSprite(squareModel, 0, 0.f, 0.f, .1f, .1f, 0.f);
     delete[] positions;
@@ -1477,7 +1479,6 @@ void ZEngineInit() {
     VkDeviceSize bufferSize = SIZEOF_SPRITE_DATA * ZENGINE_MAX_SPRITES;
     spriteDataBuffer = std::make_unique<Buffer>(bufferSize, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     spriteDataBuffer->map();
-    spriteDataBuffer->writeToBuffer(sprites, SIZEOF_SPRITE_DATA * spritesSize);
 
 #ifndef ZENGINE_DISABLE_AUDIO
     ma_engine_init(nullptr, &audio); /* init audio */
@@ -1568,7 +1569,6 @@ void ZEngineRender() {
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &spriteDataDescriptorSet, 0, nullptr);
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Camera), &camera);
 
-    char* spriteData = (char*)malloc(SIZEOF_SPRITE_DATA * spritesSize);
     std::shared_ptr<Model> lastModel = sprites[0].model;
     unsigned int instance = 0;
     unsigned int instanceCount = 0;
@@ -1599,8 +1599,7 @@ void ZEngineRender() {
         lastModel->draw(commandBuffer, instanceCount, instance);
     }
 
-    spriteDataBuffer->writeToBuffer(spriteData, SIZEOF_SPRITE_DATA * spritesSize);
-    free(spriteData);
+    spriteDataBuffer->write(spriteData, SIZEOF_SPRITE_DATA * spritesSize);
 
     /* end frame */
     vkCmdEndRenderPass(commandBuffer);
@@ -1622,6 +1621,7 @@ void ZEngineDeinit() {
     ZENGINE_PRINT2("Freeing textures\n"); for (unsigned int i = 0; i < ZENGINE_MAX_TEXTURES; i++) { spriteTextures[i].reset(); }
     ZENGINE_PRINT2("Unmaping sprite data buffer\n"); spriteDataBuffer->unmap();
     ZENGINE_PRINT3("Freeing sprite data buffer\n"); spriteDataBuffer.reset();
+    ZENGINE_PRINT2("Freeing sprite gpu buffer\n"); free(spriteData);
     ZENGINE_PRINT3("Freeing models\n"); squareModel.reset();
     for (unsigned int i = 0; i < spritesSize; i++) sprites[i].model.reset();
     ZENGINE_PRINT3("Freeing swapchain\n"); swapChain.reset();
