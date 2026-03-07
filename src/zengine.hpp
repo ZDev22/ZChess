@@ -112,6 +112,7 @@ CREATE A MODEL:   std::shared_ptr<Model> model = make_shared<Model>(vector_of_ve
 
 /* forward declaration of a bunch of structs lol */
 struct Sprite;
+struct SpriteMap;
 struct Buffer;
 struct Model;
 struct Texture;
@@ -168,6 +169,7 @@ extern float deltaTime;
 extern bool ZEngineClose;
 extern std::unique_ptr<Texture> spriteTextures[ZENGINE_MAX_TEXTURES];
 extern Sprite sprites[ZENGINE_MAX_SPRITES];
+extern std::vector<SpriteMap> spriteMap;
 extern unsigned int spritesSize;
 extern std::shared_ptr<Model> squareModel;
 extern VkDevice device_;
@@ -181,6 +183,7 @@ ZENGINE_AUDIO;
 
 float deltaTime = 0.f; /* deltaTime, do what you will. Example implementation in main.cpp */
 bool ZEngineClose = false; /* flag to show when the engine is closing */
+bool ZEngineUpdateSpriteMap = true; /* flag to update sprite instance data */
 
 /* texture vecs */
 std::unique_ptr<Texture> spriteTextures[ZENGINE_MAX_TEXTURES];
@@ -268,7 +271,6 @@ struct alignas(16) Sprite {
 
     /* CPU-side only */
     std::shared_ptr<Model> model = squareModel;
-    bool visible = true;
 
     /* helper functions */
     void operator=(Sprite* sprite) { *this = sprite; }
@@ -285,9 +287,16 @@ struct alignas(16) Sprite {
     }
 };
 
+struct SpriteMap {
+    unsigned int startID;
+    unsigned int endID;
+    std::shared_ptr<Model> model;
+};
+
 #ifdef ZENGINE_IMPLEMENTATION /* sprite vars */
 
 Sprite sprites[ZENGINE_MAX_SPRITES];
+std::vector<SpriteMap> spriteMap;
 unsigned int spritesSize = 0;
 
 #endif
@@ -1093,6 +1102,7 @@ void createSprite(std::shared_ptr<Model>& model, unsigned int textureIndex, floa
     sprites[spritesSize].textureIndex = textureIndex;
     sprites[spritesSize].depth = spritesSize / ZENGINE_MAX_SPRITES;
 
+    ZEngineUpdateSpriteMap = true;
     spritesSize++;
 }
 
@@ -1100,6 +1110,7 @@ void createSprite(Sprite* sprite) {
     if (spritesSize >= ZENGINE_MAX_SPRITES) { return; }
     createSprite(squareModel, 0, 0.f, 0.f, .1f, .1f, 0);
     sprite = &sprites[spritesSize - 1];
+    ZEngineUpdateSpriteMap = true;
     spritesSize++;
 }
 
@@ -1122,6 +1133,7 @@ void deleteSprite(Sprite* sprite) {
     }
     spritesSize--;
     sprites[spritesSize].model.reset();
+    ZEngineUpdateSpriteMap = true;
 }
 
 void deleteSprite(unsigned int sprite) {
@@ -1131,6 +1143,7 @@ void deleteSprite(unsigned int sprite) {
     }
     spritesSize--;
     sprites[spritesSize].model.reset();
+    ZEngineUpdateSpriteMap = true;
 }
 
 /* ZENGINE */
@@ -1569,35 +1582,57 @@ void ZEngineRender() {
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &spriteDataDescriptorSet, 0, nullptr);
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Camera), &camera);
 
-    std::shared_ptr<Model> lastModel = sprites[0].model;
-    unsigned int instance = 0;
-    unsigned int instanceCount = 0;
+    if (ZEngineUpdateSpriteMap) {
+        spriteMap.clear();
+        SpriteMap spritemap;
 
-    for (unsigned int i = 0; i < spritesSize; i++) {
-        if (sprites[i].visible) {
+        std::shared_ptr<Model> lastModel = sprites[0].model;
+        unsigned int instance = 0;
+        unsigned int instanceCount = 0;
+
+        for (unsigned int i = 0; i < spritesSize; i++) {
             memcpy(spriteData + i * SIZEOF_SPRITE_DATA, &sprites[i], SIZEOF_SPRITE_DATA);
             sprites[i].setRotationMatrix();
+
             if (sprites[i].model == lastModel) { instanceCount++; }
             else {
-                lastModel = sprites[i].model;
                 if (instanceCount > 0) {
                     lastModel->bind(commandBuffer);
                     lastModel->draw(commandBuffer, instanceCount, instance);
+
+                    spritemap.startID = instance;
+                    spritemap.endID = instanceCount;
+                    spritemap.model = lastModel;
+                    spriteMap.emplace_back(spritemap);
                 }
                 instance = i;
                 instanceCount = 1;
+                lastModel = sprites[i].model;
             }
         }
-        else {
+        if (instanceCount > 0) {
             lastModel->bind(commandBuffer);
             lastModel->draw(commandBuffer, instanceCount, instance);
-            instanceCount = 0;
+
+            spritemap.startID = instance;
+            spritemap.endID = instanceCount;
+            spritemap.model = lastModel;
+            spriteMap.emplace_back(spritemap);
+        }
+
+        ZEngineUpdateSpriteMap = false;
+    }
+    else {
+        for (unsigned int i = 0; i < spritesSize; i++) {
+            memcpy(spriteData + i * SIZEOF_SPRITE_DATA, &sprites[i], SIZEOF_SPRITE_DATA);
+            sprites[i].setRotationMatrix();
+        }
+        for (SpriteMap& map : spriteMap) {
+            map.model->bind(commandBuffer);
+            map.model->draw(commandBuffer, map.endID, map.startID);
         }
     }
-    if (instanceCount > 0) {
-        lastModel->bind(commandBuffer);
-        lastModel->draw(commandBuffer, instanceCount, instance);
-    }
+
 
     spriteDataBuffer->write(spriteData, SIZEOF_SPRITE_DATA * spritesSize);
 
@@ -1624,6 +1659,7 @@ void ZEngineDeinit() {
     ZENGINE_PRINT2("Freeing sprite gpu buffer\n"); free(spriteData);
     ZENGINE_PRINT3("Freeing models\n"); squareModel.reset();
     for (unsigned int i = 0; i < spritesSize; i++) sprites[i].model.reset();
+    for (SpriteMap& map : spriteMap) map.model.reset();
     ZENGINE_PRINT3("Freeing swapchain\n"); swapChain.reset();
 
     ZENGINE_PRINT3("Freeing descriptor set layout\n"); vkDestroyDescriptorSetLayout(device_, descriptorSetLayout, nullptr);
