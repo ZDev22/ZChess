@@ -5,39 +5,29 @@ An example implementation on how to init and use zengine, as well as a few zdeps
 #define FPS_CAP 60.f // set the framerate, dont define for no FPS cap
 */
 
-#if 1 // render the screen and tick the game (disable if it's a terminal game)
-
 /* ZENGINE */
 #define ZENGINE_IMPLEMENTATION
-#define ZENGINE_DEPS_DEFINED
-#define ZENGINE_DISABLE_VSYNC
+#define ZENGINE_SPRITE_MAPMODE_MANUAL
+#define ZENGINE_SPRITE_MATRIXMODE_MANUAL
+#define ZENGINE_DEFAULT_TEXTURE "empty.png"
+//#define ZENGINE_DISABLE_VSYNC
 //#define ZENGINE_FORCE_SHADER_RECOMPILATION
 //#define ZENGINE_NEVER_RECOMPILE_SHADERS
-//#define ZENGINE_DISABLE_AUDIO
+#define ZENGINE_DISABLE_AUDIO
 #define ZENGINE_MAX_FRAMES_IN_FLIGHT 2
-#define ZENGINE_DEBUG 0
+//#define ZENGINE_DEBUG 3
 #define ZENGINE_MAX_SPRITES 100000
 #define ZENGINE_MAX_TEXTURES 100
 #include "zengine.hpp"
 
 /* ZDEPS */
-#define ZCOLLIDE_IMPLEMENTATION
-#define ZTEXT_IMPLEMENTATION
-#include "zcollide.hpp"
 #include "zwindow.hpp"
-#include "ztext.hpp"
 
 /* APPS */
-#include "games/flappyBird.hpp"
-//#include "games/slimeAttack.hpp"
-//#include "games/stresstest.hpp"
+#include "zchess/zchess.hpp"
 
 /* STD */
 #include <thread>
-
-#ifndef ZENGINE_DISABLE_VSYNC
-    #define FPS_CAP 60.f
-#endif
    
 /* vars for calculating fps and deltaTime */
 int fps = 0;
@@ -46,7 +36,6 @@ float appWait = 0.f;
 std::chrono::high_resolution_clock::time_point fpsTime;
 std::chrono::high_resolution_clock::time_point fpsLastTime;
 
-void render();
 int main() {
     #ifdef FPS_CAP
         deltaTime = 1.f / FPS_CAP;
@@ -55,7 +44,7 @@ int main() {
     /* init engine */
     ZWindow zwindow{windowdata, 720, 480};
     ZEngineInit();
-    Game game{zwindow, audio, camera};
+    ZChess zchess{zwindow};
 
     while (true) {
         /* calculate fps */
@@ -86,9 +75,7 @@ int main() {
             break;
         }
 
-        game.tick();
-
-        zcollide_clearAABB();
+        zchess.tick();
 
         #ifdef FPS_CAP
             fpsLastTime = std::chrono::high_resolution_clock::now();
@@ -98,12 +85,3 @@ int main() {
         ZEngineRender();
     }
 }
-
-#else
-
-/* TERMINAL APPS */
-#include "games/terminalCalculator.hpp"
-
-int main() { Terminal(); }
-
-#endif
