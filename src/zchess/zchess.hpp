@@ -123,11 +123,9 @@ void pawnMovement() {
 
     /* check if they are en-passaunt-able */
     unsigned int LastMove = (unsigned int)(lastMove >> 32);
-    //std::cout << LastMove << " | " << peice << std::endl;
     if ((LastMove - 1 == peice || LastMove + 1 == peice) && /* the pawn that last moved is next the pawn you are moving */
         board[LastMove] == 1) { /* the peice next to you is a pawn */
 
-        //std::cout << (unsigned int)lastMove << " | " << LastMove + (move * 2) << std::endl;
         if ((unsigned int)lastMove == LastMove + (move * 2)) { /* the pawn moved two spaces the last move */
             if (!(move == (BOARD_SIZE ^ !isPeiceBlack(LastMove)))) { /* both pawns are different colors */
                 movements.emplace_back(LastMove + move); /* en-passaunt */
@@ -144,6 +142,7 @@ void rookMovement() {
         for (unsigned int i = 1; i < BOARD_SIZE; i++) {
             if (stop) break;
             pos = peice - (i * BOARD_SIZE);
+            if (pos < 0 || pos >= BOARD_SQUARES) break;
             movements.emplace_back(pos);
             if (board[pos] != 0) stop = true;
             if (isOnTop()) stop = true;
@@ -156,6 +155,7 @@ void rookMovement() {
         for (unsigned int i = 1; i < BOARD_SIZE; i++) {
             if (stop) break;
             pos = peice + i * BOARD_SIZE;
+            if (pos < 0 || pos >= BOARD_SQUARES) break;
             movements.emplace_back(pos);
             if (board[pos] != 0) stop = true;
             if (isOnBottom()) stop = true;
@@ -168,6 +168,7 @@ void rookMovement() {
         for (unsigned int i = 1; i < BOARD_SIZE; i++) {
             if (stop) break;
             pos = peice - i;
+            if (pos < 0 || pos >= BOARD_SQUARES) break;
             movements.emplace_back(pos);
             if (board[pos] != 0) stop = true;
             if (isOnLeftEdge()) stop = true;
@@ -180,6 +181,7 @@ void rookMovement() {
         for (unsigned int i = 1; i < BOARD_SIZE; i++) {
             if (stop) break;
             pos = peice + i;
+            if (pos < 0 || pos >= BOARD_SQUARES) break;
             movements.emplace_back(pos);
             if (board[pos] != 0) stop = true;
             if (isOnRightEdge()) stop = true;
@@ -233,6 +235,7 @@ void bishopMovement() {
         for (unsigned int i = 1; i < BOARD_SQUARES; i++) {
             if (stop) break;
             pos = peice - (i * BOARD_SIZE - i);
+            if (pos < 0 || pos >= BOARD_SQUARES) break;
             movements.emplace_back(pos);
             if (board[pos] != 0) stop = true;
             if (isOnTop() || isOnRightEdge()) stop = true;
@@ -245,6 +248,7 @@ void bishopMovement() {
         for (unsigned int i = 1; i < BOARD_SQUARES; i++) {
             if (stop) break;
             pos = peice - (i * BOARD_SIZE + i);
+            if (pos < 0 || pos >= BOARD_SQUARES) break;
             movements.emplace_back(pos);
             if (board[pos] != 0) stop = true;
             if (isOnTop() || isOnLeftEdge()) stop = true;
@@ -257,6 +261,7 @@ void bishopMovement() {
         for (unsigned int i = 1; i < BOARD_SQUARES; i++) {
             if (stop) break;
             pos = peice + (i * BOARD_SIZE + i);
+            if (pos < 0 || pos >= BOARD_SQUARES) break;
             movements.emplace_back(pos);
             if (board[pos] != 0) stop = true;
             if (isOnBottom() || isOnRightEdge()) stop = true;
@@ -269,6 +274,7 @@ void bishopMovement() {
         for (unsigned int i = 1; i < 255; i++) {
             if (stop) break;
             pos = peice + (i * BOARD_SIZE - i);
+            if (pos < 0 || pos >= BOARD_SQUARES) break;
             movements.emplace_back(pos);
             if (board[pos] != 0) stop = true;
             if (isOnBottom() || isOnLeftEdge()) stop = true;
@@ -358,7 +364,7 @@ void movePeice() {
                             board[to - 1] = 2;
                             sprites[to - 1].textureIndex = 8;
                         }
-                        else {
+                        else { /* king moved left, move right rook */
                             board[0] = 0;
                             sprites[0].textureIndex = 0;
                             board[to + 1] = 2;
@@ -372,7 +378,7 @@ void movePeice() {
                             board[to - 1] = 2;
                             sprites[to - 1].textureIndex = 2;
                         }
-                        else {
+                        else { /* king moved left, move right rook */
                             board[BOARD_SQUARES - BOARD_SIZE] = 0;
                             sprites[BOARD_SQUARES - BOARD_SIZE].textureIndex = 0;
                             board[to + 1] = 2;
@@ -400,6 +406,7 @@ inline unsigned int squareClicked() { return (unsigned int)(zwindow.getMouseX() 
 
 void tick() {
     if (zwindow.LMBHit()) { /* select peice */
+        movements.clear();
         peice = squareClicked();
  
         switch(board[peice]) {
@@ -418,7 +425,6 @@ void tick() {
 
         posx = sprites[peice].position[0];
         posy = sprites[peice].position[1];
-        ZEngineSpriteRemap = true;
     }
     else if (zwindow.LMBPressed()) { /* drag peice */
         sprites[peice].position[0] = -1.f + zwindow.getMouseX() * 2.f;
@@ -433,7 +439,6 @@ void tick() {
         unsigned long long newMove = to;
         movePeice();
         lastMove = (unsigned int)peice + (newMove << 32);
-        movements.clear();
         ZEngineSpriteRemap = true;
     }
 }
