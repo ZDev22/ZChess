@@ -62,16 +62,16 @@ ZChess(ZWindow& zwindow) : zwindow(zwindow) {
     /* load sprites */
     id = 0;
     deleteSprite(id);
-    id = zwindow.getSizeX() > zwindow.getSizeY() ? zwindow.getSizeY() : zwindow.getSizeX();
-    float x = -1.f - (float)(id / BOARD_SIZE) / id;
+    id = zwindow.getSizeX();
+    float x = -.95f - (float)(id / BOARD_SIZE) / id;
     float y = -.88f;
     for (unsigned int i = 0; i < BOARD_SIZE; i++) {
         for (unsigned int j = 0; j < BOARD_SIZE; j++) {
-            x += ((float)(id / BOARD_SIZE) / id) * 2.f;
+            x += ((float)(id / BOARD_SIZE) / id) * 1.3f;
             createSprite(squareModel, board[i * BOARD_SIZE + j] + (isPeiceBlack(i * BOARD_SIZE + j) ? 6 : 0), x, y, .15f, .23f, 0.f);
             sprites[spritesSize - 1].setRotationMatrix();
         }
-        x = -1.f - (float)(id / BOARD_SIZE) / id;
+        x = -.95f - (float)(id / BOARD_SIZE) / id;
         y += ((float)(id / BOARD_SIZE) / id) * 2.f;
     }
 
@@ -91,6 +91,7 @@ ZChess(ZWindow& zwindow) : zwindow(zwindow) {
         if (board[i] != 0) break;
         sprites[i].textureIndex = 0;
     }
+    createSprite(squareModel, 0, 100.f, 100.f, .13f, .23f, 0.f); /* sprite that gets selected if you select an invalid square */
 }
 
 inline unsigned char isPeiceBlack(unsigned int index) { return blackPeice[index]; }
@@ -402,31 +403,36 @@ void movePeice() {
     }
 }
 
-inline unsigned int squareClicked() { return (unsigned int)(zwindow.getMouseX() * BOARD_SIZE) + (unsigned int)(zwindow.getMouseY() * BOARD_SIZE) * BOARD_SIZE; }
+unsigned int squareClicked() {
+    if (zwindow.getMouseX() > .65f) return BOARD_SQUARES;
+    return (unsigned int)((zwindow.getMouseX() * 1.5f) * BOARD_SIZE) + (unsigned int)(zwindow.getMouseY() * BOARD_SIZE) * BOARD_SIZE;
+}
 
 void tick() {
     if (zwindow.LMBHit()) { /* select peice */
         movements.clear();
         peice = squareClicked();
  
-        switch(board[peice]) {
-        case 0: { break; }
-        case 1: { pawnMovement(); break; }
-        case 2: { rookMovement(); break; }
-        case 3: { knightMovement(); break; }
-        case 4: { bishopMovement(); break; }
-        case 5: { /* queen */
-            rookMovement();
-            bishopMovement();
-            break;
-        }
-        case 6: { kingMovement(); break; }
+        if (peice < BOARD_SQUARES) {
+            switch(board[peice]) {
+            case 0: { break; }
+            case 1: { pawnMovement(); break; }
+            case 2: { rookMovement(); break; }
+            case 3: { knightMovement(); break; }
+            case 4: { bishopMovement(); break; }
+            case 5: { /* queen */
+                rookMovement();
+                bishopMovement();
+                break;
+            }
+            case 6: { kingMovement(); break; }
+            }
         }
 
         posx = sprites[peice].position[0];
         posy = sprites[peice].position[1];
     }
-    else if (zwindow.LMBPressed()) { /* drag peice */
+    if (zwindow.LMBPressed()) { /* drag peice */
         sprites[peice].position[0] = -1.f + zwindow.getMouseX() * 2.f;
         sprites[peice].position[1] = -1.f + zwindow.getMouseY() * 2.f;
         ZEngineSpriteRemap = true;
