@@ -141,48 +141,48 @@ void rookMovement() {
     bool stop = false;
     unsigned int pos = 0;
     if (!isOnTop()) { /* make sure the rook isnt on the edge of the board */
-        for (unsigned char i = 1; i < BOARD_SIZE; i++) {
+        for (unsigned int i = 1; i < BOARD_SIZE; i++) {
             if (stop) break;
             pos = peice - (i * BOARD_SIZE);
             movements.emplace_back(pos);
             if (board[pos] != 0) stop = true;
-            if (pos < BOARD_SIZE) stop = true;
+            if (isOnTop()) stop = true;
         }
     }
 
     /* down movement*/
     stop = false;
     if (!isOnBottom()) { /* make sure the rook isnt on the edge of the board */
-        for (unsigned char i = 1; i < BOARD_SIZE; i++) {
+        for (unsigned int i = 1; i < BOARD_SIZE; i++) {
             if (stop) break;
             pos = peice + i * BOARD_SIZE;
             movements.emplace_back(pos);
             if (board[pos] != 0) stop = true;
-            if (pos > BOARD_SIZE * BOARD_SIZE - BOARD_SIZE) stop = true;
+            if (isOnBottom()) stop = true;
         }
     }
 
     /* left movement*/
     stop = false;
     if (!isOnLeftEdge()) { /* make sure the rook isnt on the edge of the board */
-        for (unsigned char i = 1; i < BOARD_SIZE; i++) {
+        for (unsigned int i = 1; i < BOARD_SIZE; i++) {
             if (stop) break;
             pos = peice - i;
             movements.emplace_back(pos);
             if (board[pos] != 0) stop = true;
-            if (pos % BOARD_SIZE == 0) stop = true;
+            if (isOnLeftEdge()) stop = true;
         }
     }
 
     /* right movement*/
     stop = false;
     if (!isOnRightEdge()) { /* make sure the rook isnt on the edge of the board */
-        for (unsigned char i = 1; i < BOARD_SIZE; i++) {
+        for (unsigned int i = 1; i < BOARD_SIZE; i++) {
             if (stop) break;
             pos = peice + i;
             movements.emplace_back(pos);
             if (board[pos] != 0) stop = true;
-            if (pos % BOARD_SIZE == BOARD_SIZE - 1) stop = true;
+            if (isOnRightEdge()) stop = true;
         }
     }
 }
@@ -230,7 +230,7 @@ void bishopMovement() {
     bool stop = false;
     unsigned int pos = 0;
     if (!isOnTop() && !isOnRightEdge()) { /* make sure the bishop isnt on the edge of the board */
-        for (unsigned char i = 1; i < BOARD_SQUARES; i++) {
+        for (unsigned int i = 1; i < BOARD_SQUARES; i++) {
             if (stop) break;
             pos = peice - (i * BOARD_SIZE - i);
             movements.emplace_back(pos);
@@ -242,7 +242,7 @@ void bishopMovement() {
     /* up <- movement*/
     stop = false;
     if (!isOnTop() && !isOnLeftEdge()) { /* make sure the bishop isnt on the edge of the board */
-        for (unsigned char i = 1; i < BOARD_SQUARES; i++) {
+        for (unsigned int i = 1; i < BOARD_SQUARES; i++) {
             if (stop) break;
             pos = peice - (i * BOARD_SIZE + i);
             movements.emplace_back(pos);
@@ -254,7 +254,7 @@ void bishopMovement() {
     /* down -> movement*/
     stop = false;
     if (!isOnBottom() && !isOnRightEdge()) { /* make sure the bishop isnt on the edge of the board */
-        for (unsigned char i = 1; i < BOARD_SQUARES; i++) {
+        for (unsigned int i = 1; i < BOARD_SQUARES; i++) {
             if (stop) break;
             pos = peice + (i * BOARD_SIZE + i);
             movements.emplace_back(pos);
@@ -266,7 +266,7 @@ void bishopMovement() {
     /* down <- movement*/
     stop = false;
     if (!isOnBottom() && !isOnLeftEdge()) { /* make sure the bishop isnt on the edge of the board */
-        for (unsigned char i = 1; i < 255; i++) {
+        for (unsigned int i = 1; i < 255; i++) {
             if (stop) break;
             pos = peice + (i * BOARD_SIZE - i);
             movements.emplace_back(pos);
@@ -315,6 +315,14 @@ void kingMovement() {
 void movePeice() {
     for (unsigned int i = 0; i < movements.size(); i++) {
         if (to == movements[i]) {
+            if (board[peice] == 1) { /* check for en-passaunt */
+                if (board[to] == 0 && abs(to - peice) % BOARD_SIZE != 0) { /* the pawn moved to an empty square, but also took */
+                    long long pos = isPeiceBlack(peice) ? -BOARD_SIZE : BOARD_SIZE;
+                    board[to + pos] = 0;
+                    sprites[to + pos].textureIndex = 0;
+                }
+            }
+
             blackPeice[to] = isPeiceBlack(peice);
             blackPeice[peice] = 0;
 
@@ -323,18 +331,18 @@ void movePeice() {
             board[peice] = 0;
             sprites[peice].textureIndex = 0;
 
-            if (board[to] == 1) { /* you moved a pawn */
-                /* check for en-passaunt, then delete pawn that was tragically eliminated */
-                short pos = isPeiceBlack(to) ? -BOARD_SIZE : BOARD_SIZE;
-                if ((to + peice) % BOARD_SIZE != 0) {
-                    board[to + pos] = 0;
-                    sprites[to + pos].textureIndex = 0;
+            if (board[to] == 1) {
+                if (isPeiceBlack(to)) {
+                    if (to > BOARD_SQUARES - BOARD_SIZE - 1) {
+                        board[to] = 5;
+                        sprites[to].textureIndex = 5;
+                    }
                 }
-
-                /* check for promotion */
-                if (to < BOARD_SIZE) {
-                    board[to] = 5;
-                    sprites[to].textureIndex = 5;
+                else {
+                    if (to < BOARD_SIZE) {
+                        board[to] = 5;
+                        sprites[to].textureIndex = 5;
+                    }
                 }
             }
 
@@ -348,13 +356,13 @@ void movePeice() {
                             board[BOARD_SIZE - 1] = 0;
                             sprites[BOARD_SIZE - 1].textureIndex = 0;
                             board[to - 1] = 2;
-                            sprites[to - 1].textureIndex = 2;
+                            sprites[to - 1].textureIndex = 8;
                         }
                         else {
                             board[0] = 0;
                             sprites[0].textureIndex = 0;
                             board[to + 1] = 2;
-                            sprites[to + 1].textureIndex = 2;
+                            sprites[to + 1].textureIndex = 8;
                         }
                     }
                     else {
