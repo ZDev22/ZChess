@@ -78,20 +78,19 @@ ZChess(ZWindow& zwindow) : zwindow(zwindow) {
     sprites[0].setTexture(std::make_unique<Texture>("brook.png"));
     sprites[1].setTexture(std::make_unique<Texture>("bknight.png"));
     sprites[2].setTexture(std::make_unique<Texture>("bbishop.png"));
-    sprites[4].setTexture(std::make_unique<Texture>("bqueen.png"));
-    sprites[3].setTexture(std::make_unique<Texture>("bking.png"));
+    sprites[3].setTexture(std::make_unique<Texture>("bqueen.png"));
+    sprites[4].setTexture(std::make_unique<Texture>("bking.png"));
     sprites[BOARD_SIZE].setTexture(std::make_unique<Texture>("bpawn.png"));
     sprites[BOARD_SQUARES - 1].setTexture(std::make_unique<Texture>("rook.png"));
     sprites[BOARD_SQUARES - 2].setTexture(std::make_unique<Texture>("knight.png"));
     sprites[BOARD_SQUARES - 3].setTexture(std::make_unique<Texture>("bishop.png"));
-    sprites[BOARD_SQUARES - 4].setTexture(std::make_unique<Texture>("queen.png"));
-    sprites[BOARD_SQUARES - 5].setTexture(std::make_unique<Texture>("king.png"));
+    sprites[BOARD_SQUARES - 5].setTexture(std::make_unique<Texture>("queen.png"));
+    sprites[BOARD_SQUARES - 4].setTexture(std::make_unique<Texture>("king.png"));
     sprites[BOARD_SQUARES - BOARD_SIZE - 1].setTexture(std::make_unique<Texture>("pawn.png"));
     for (unsigned int i = BOARD_SIZE * 2;; i++) {
         if (board[i] != 0) break;
         sprites[i].textureIndex = 0;
     }
-    createSprite(squareModel, 0, 100.f, 100.f, .13f, .23f, 0.f); /* sprite that gets selected if you select an invalid square */
 }
 
 inline unsigned char isPeiceBlack(unsigned int index) { return blackPeice[index]; }
@@ -413,26 +412,24 @@ void tick() {
         movements.clear();
         peice = squareClicked();
  
-        if (peice < BOARD_SQUARES) {
-            switch(board[peice]) {
-            case 0: { break; }
-            case 1: { pawnMovement(); break; }
-            case 2: { rookMovement(); break; }
-            case 3: { knightMovement(); break; }
-            case 4: { bishopMovement(); break; }
-            case 5: { /* queen */
-                rookMovement();
-                bishopMovement();
-                break;
-            }
-            case 6: { kingMovement(); break; }
-            }
+        switch(board[peice]) {
+        case 0: { break; }
+        case 1: { pawnMovement(); break; }
+        case 2: { rookMovement(); break; }
+        case 3: { knightMovement(); break; }
+        case 4: { bishopMovement(); break; }
+        case 5: { /* queen */
+            rookMovement();
+            bishopMovement();
+            break;
+        }
+        case 6: { kingMovement(); break; }
         }
 
         posx = sprites[peice].position[0];
         posy = sprites[peice].position[1];
     }
-    if (zwindow.LMBPressed()) { /* drag peice */
+    else if (zwindow.LMBPressed()) { /* drag peice */
         sprites[peice].position[0] = -1.f + zwindow.getMouseX() * 2.f;
         sprites[peice].position[1] = -1.f + zwindow.getMouseY() * 2.f;
         ZEngineSpriteRemap = true;
