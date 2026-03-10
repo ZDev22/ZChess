@@ -1,3 +1,10 @@
+/* licensed under GPL v3.0 see https://github.com/ZDev22/ZChess/blob/main/LICENSE for current license
+
+ZChess is a chess engine written by ZDev, you can take your own peices but it's ok
+
+#define MIDNIGHT_ZCHESS - queens can move like knights
+*/
+
 #ifndef ZCHESS_HPP
 #define ZCHESS_HPP
 
@@ -409,6 +416,9 @@ void tick() {
         case 5: { /* queen */
             rookMovement();
             bishopMovement();
+#ifdef MIDNIGHT_ZCHESS
+            knightMovement();
+#endif
             break;
         }
         case 6: { kingMovement(); break; }

@@ -1,4 +1,4 @@
-/* licensed under GPL v3.0 see https://github.com/ZDev22/ZEngine/blob/main/LICENSE for current license
+/* licensed under GPL v3.0 see https://github.com/ZDev22/ZChess/blob/main/LICENSE for current license
 
 An example implementation on how to init and use zengine, as well as a few zdeps!
 
@@ -24,6 +24,7 @@ An example implementation on how to init and use zengine, as well as a few zdeps
 #include "zwindow.hpp"
 
 /* APPS */
+#define MIDNIGHT_ZCHESS
 #include "zchess/zchess.hpp"
 
 /* STD */
