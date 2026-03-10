@@ -17,7 +17,7 @@ An example implementation on how to init and use zengine, as well as a few zdeps
 #define ZENGINE_MAX_FRAMES_IN_FLIGHT 2
 //#define ZENGINE_DEBUG 3
 #define ZENGINE_MAX_SPRITES 100000
-#define ZENGINE_MAX_TEXTURES 100
+#define ZENGINE_MAX_TEXTURES 64
 #include "zengine.hpp"
 
 /* ZDEPS */
@@ -29,7 +29,7 @@ An example implementation on how to init and use zengine, as well as a few zdeps
 /* STD */
 #include <thread>
 
-#define FPS_CAP 60.f
+//#define FPS_CAP 60.f
    
 /* vars for calculating fps and deltaTime */
 int fps = 0;
