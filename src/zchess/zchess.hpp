@@ -8,7 +8,6 @@ ZChess is a chess engine written by ZDev, you can take your own peices but it's 
 #ifndef ZCHESS_HPP
 #define ZCHESS_HPP
 
-#include <iostream>
 #include <string.h>
 #include <vector>
 
@@ -110,6 +109,7 @@ ZChess(ZWindow& zwindow) : zwindow(zwindow) {
     sprites[BOARD_SQUARES - 4].setTexture(std::make_unique<Texture>("king.png"));
     sprites[BOARD_SQUARES - BOARD_SIZE - 1].setTexture(std::make_unique<Texture>("pawn.png"));
     sprites[BOARD_SIZE * 2].setTexture(std::make_unique<Texture>("empty2.png"));
+    zwindow.setName("ZChess");
 }
 
 void pawnMovement() {
@@ -389,8 +389,8 @@ void movePeice() {
             for (unsigned int i = 0; i < BOARD_SQUARES; i++) {
                 if (board[i] == 6) { kingsAlive[isPeiceBlack(i)] = 1; }
             }
-            if (kingsAlive[0] && !kingsAlive[1]) { std::cout << "CHECKMATE! White wins!"; }
-            else if (!kingsAlive[0] && kingsAlive[1]) { std::cout << "CHECKMATE! Black wins!"; }
+            if (kingsAlive[0] && !kingsAlive[1]) { zwindow.setName("CHECKMATE! White wins!"); }
+            else if (!kingsAlive[0] && kingsAlive[1]) { zwindow.setName("CHECKMATE! Black wins!"); }
 
             return;
         }

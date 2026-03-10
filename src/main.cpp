@@ -10,12 +10,8 @@ An example implementation on how to init and use zengine, as well as a few zdeps
 #define ZENGINE_SPRITE_MAPMODE_MANUAL
 #define ZENGINE_SPRITE_MATRIXMODE_MANUAL
 #define ZENGINE_DEFAULT_TEXTURE "empty.png"
-//#define ZENGINE_DISABLE_VSYNC
-//#define ZENGINE_FORCE_SHADER_RECOMPILATION
-//#define ZENGINE_NEVER_RECOMPILE_SHADERS
 #define ZENGINE_DISABLE_AUDIO
 #define ZENGINE_MAX_FRAMES_IN_FLIGHT 2
-//#define ZENGINE_DEBUG 3
 #define ZENGINE_MAX_SPRITES 100000
 #define ZENGINE_MAX_TEXTURES 64
 #include "zengine.hpp"
@@ -30,7 +26,7 @@ An example implementation on how to init and use zengine, as well as a few zdeps
 /* STD */
 #include <thread>
 
-//#define FPS_CAP 60.f
+#define FPS_CAP 60.f
    
 /* vars for calculating fps and deltaTime */
 int fps = 0;
@@ -62,7 +58,6 @@ int main() {
             fpsLastTime = fpsTime;
         #endif
         if (appTimer > 1.f) {
-            RGFW_window_setName(windowdata, ("fps: " + std::to_string(fps)).c_str());
             appTimer = 0.f;
             fps = 0;
         }
