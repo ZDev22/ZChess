@@ -23,6 +23,7 @@ unsigned long long lastMove             =  0 ; /* keep track of the last move pl
 std::vector<unsigned int> movements;           /* all possible movements for selected peice*/
 bool movingPeice                        =  0 ; /* flag to know if your mvoing a peice */
 bool kingMoved[2]                       = {0}; /* keep track if kings have moved, 0 = white, 1 = black */
+unsigned int promotion                  = BOARD_SQUARES; /* the position of the promoted pawn */
 
 long long peice  = 0  ;
 unsigned int to  = 0  ;
@@ -307,6 +308,27 @@ void kingMovement() {
     }
 }
 
+void checkPeice(unsigned int index) {
+    movements.clear();
+
+    switch(board[index]) {
+    case 0: { break; }
+    case 1: { pawnMovement(); break; }
+    case 2: { rookMovement(); break; }
+    case 3: { knightMovement(); break; }
+    case 4: { bishopMovement(); break; }
+    case 5: { /* queen */
+        rookMovement();
+        bishopMovement();
+#ifdef MIDNIGHT_ZCHESS
+        knightMovement();
+#endif
+        break;
+    }
+    case 6: { kingMovement(); break; }
+    }
+}
+
 void movePeice() {
     for (unsigned int i = 0; i < movements.size(); i++) {
         if (to == movements[i]) {
@@ -328,17 +350,22 @@ void movePeice() {
             sprites[peice].textureIndex = emptyTileTexture(peice);
 
             /* check for promotion */
+            promotion = BOARD_SQUARES;
             if (board[to] == 1) {
                 if (isPeiceBlack(to)) {
                     if (to > BOARD_SQUARES - BOARD_SIZE - 1) {
                         board[to] = 5;
                         sprites[to].textureIndex = 12;
+                        promotion = to;
+                        zwindow.setName("PROMOTION! 0 = pawn, 1 = rook, 2 = bishop, 3 = knight, 4 = queen, 5 = king");
                     }
                 }
                 else {
                     if (to < BOARD_SIZE) {
                         board[to] = 5;
                         sprites[to].textureIndex = 6;
+                        promotion = to;
+                        zwindow.setName("PROMOTION! 0 = pawn, 1 = rook, 2 = bishop, 3 = knight, 4 = queen, 5 = king");
                     }
                 }
             }
@@ -385,9 +412,13 @@ void movePeice() {
 
             /* check for checkmate */
             bool kingsAlive[2] = {0};
+            unsigned int kingPos[2] = {65}; /* keep track of king position for checks */
 
             for (unsigned int i = 0; i < BOARD_SQUARES; i++) {
-                if (board[i] == 6) { kingsAlive[isPeiceBlack(i)] = 1; }
+                if (board[i] == 6) {
+                    kingsAlive[isPeiceBlack(i)] = 1;
+                    kingPos[isPeiceBlack(i)] = i;
+                }
             }
             if (kingsAlive[0] && !kingsAlive[1]) { zwindow.setName("CHECKMATE! White wins!"); }
             else if (!kingsAlive[0] && kingsAlive[1]) { zwindow.setName("CHECKMATE! Black wins!"); }
@@ -404,25 +435,9 @@ unsigned int squareClicked() {
 
 void tick() {
     if (zwindow.LMBHit()) { /* select peice */
-        movements.clear();
+        zwindow.setName("ZChess");
         peice = squareClicked();
- 
-        switch(board[peice]) {
-        case 0: { break; }
-        case 1: { pawnMovement(); break; }
-        case 2: { rookMovement(); break; }
-        case 3: { knightMovement(); break; }
-        case 4: { bishopMovement(); break; }
-        case 5: { /* queen */
-            rookMovement();
-            bishopMovement();
-#ifdef MIDNIGHT_ZCHESS
-            knightMovement();
-#endif
-            break;
-        }
-        case 6: { kingMovement(); break; }
-        }
+        checkPeice(peice);
 
         posx = sprites[peice].position[0];
         posy = sprites[peice].position[1];
@@ -440,6 +455,38 @@ void tick() {
         movePeice();
         lastMove = (unsigned int)peice + ((unsigned long long)to << 32);
         ZEngineSpriteRemap = true;
+    }
+    else if (promotion != BOARD_SQUARES) {
+        if (zwindow.keyHit(RGFW_0)) {
+            board[promotion] = 1;
+            sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 8 : 2;
+            ZEngineSpriteRemap = true;
+        }
+        else if (zwindow.keyHit(RGFW_1)) {
+            board[promotion] = 2;
+            sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 9 : 3;
+            ZEngineSpriteRemap = true;
+        }
+        else if (zwindow.keyHit(RGFW_2)) {
+            board[promotion] = 3;
+            sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 10 : 4;
+            ZEngineSpriteRemap = true;
+        }
+        else if (zwindow.keyHit(RGFW_3)) {
+            board[promotion] = 4;
+            sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 11 : 5;
+            ZEngineSpriteRemap = true;
+        }
+        else if (zwindow.keyHit(RGFW_4)) {
+            board[promotion] = 5;
+            sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 12 : 6;
+            ZEngineSpriteRemap = true;
+        }
+        else if (zwindow.keyHit(RGFW_5)) {
+            board[promotion] = 6;
+            sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 13 : 7;
+            ZEngineSpriteRemap = true;
+        }
     }
 }
 
