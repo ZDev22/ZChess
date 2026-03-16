@@ -81,8 +81,6 @@ ZChess(ZWindow& zwindow) : zwindow(zwindow) {
     memset(blackPeice, 1, BOARD_SQUARES / 2 - 1); /* set black peices */
 
     /* load sprites */
-    id = 0;
-    deleteSprite(id);
     id = zwindow.getSizeX();
     float x = -.95f - (float)(id / BOARD_SIZE) / id;
     float y = -.88f;
