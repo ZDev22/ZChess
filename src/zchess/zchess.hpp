@@ -82,32 +82,33 @@ ZChess(ZWindow& zwindow) : zwindow(zwindow) {
 
     /* load sprites */
     id = zwindow.getSizeX();
-    float x = -.95f - (float)(id / BOARD_SIZE) / id;
+    float x = -1.f;
     float y = -.88f;
     for (unsigned int i = 0; i < BOARD_SIZE; i++) {
         for (unsigned int j = 0; j < BOARD_SIZE; j++) {
-            x += ((float)(id / BOARD_SIZE) / id) * 1.3f;
-            if (board[i * BOARD_SIZE + j] == 0) createSprite(squareModel, emptyTileTexture(i * BOARD_SIZE + j), x, y, .16f, .25f, 0.f);
-            else createSprite(squareModel, board[i * BOARD_SIZE + j] + (isPeiceBlack(i * BOARD_SIZE + j) ? 7 : 1), x, y, .16f, .25f, 0.f);
+            if (board[i * BOARD_SIZE + j] == 0) createSprite(squareModel, emptyTileTexture(i * BOARD_SIZE + j), x, y, .25f, .25f, 0.f);
+            else createSprite(squareModel, board[i * BOARD_SIZE + j] + (isPeiceBlack(i * BOARD_SIZE + j) ? 7 : 1), x, y, .25f, .25f, 0.f);
             sprites[spritesSize - 1].setRotationMatrix();
+            x += ((float)(id / BOARD_SIZE) / id) * 2.f;
         }
-        x = -.95f - (float)(id / BOARD_SIZE) / id;
+        x = -1.f;
         y += ((float)(id / BOARD_SIZE) / id) * 2.f;
     }
 
-    sprites[0].setTexture(std::make_unique<Texture>("brook.png"));
-    sprites[1].setTexture(std::make_unique<Texture>("bknight.png"));
-    sprites[2].setTexture(std::make_unique<Texture>("bbishop.png"));
-    sprites[3].setTexture(std::make_unique<Texture>("bqueen.png"));
-    sprites[4].setTexture(std::make_unique<Texture>("bking.png"));
-    sprites[BOARD_SIZE].setTexture(std::make_unique<Texture>("bpawn.png"));
-    sprites[BOARD_SQUARES - 1].setTexture(std::make_unique<Texture>("rook.png"));
-    sprites[BOARD_SQUARES - 2].setTexture(std::make_unique<Texture>("knight.png"));
-    sprites[BOARD_SQUARES - 3].setTexture(std::make_unique<Texture>("bishop.png"));
-    sprites[BOARD_SQUARES - 5].setTexture(std::make_unique<Texture>("queen.png"));
-    sprites[BOARD_SQUARES - 4].setTexture(std::make_unique<Texture>("king.png"));
-    sprites[BOARD_SQUARES - BOARD_SIZE - 1].setTexture(std::make_unique<Texture>("pawn.png"));
-    sprites[BOARD_SIZE * 2].setTexture(std::make_unique<Texture>("empty2.png"));
+    updateTexture(0, std::make_unique<Texture>("empty.png"));
+    updateTexture(1, std::make_unique<Texture>("empty2.png"));
+    updateTexture(2, std::make_unique<Texture>("pawn.png"));
+    updateTexture(3, std::make_unique<Texture>("rook.png"));
+    updateTexture(4, std::make_unique<Texture>("knight.png"));
+    updateTexture(5, std::make_unique<Texture>("bishop.png"));
+    updateTexture(6 ,std::make_unique<Texture>("queen.png"));
+    updateTexture(7, std::make_unique<Texture>("king.png"));
+    updateTexture(8, std::make_unique<Texture>("bpawn.png"));
+    updateTexture(9, std::make_unique<Texture>("brook.png"));
+    updateTexture(10, std::make_unique<Texture>("bknight.png"));
+    updateTexture(11, std::make_unique<Texture>("bbishop.png"));
+    updateTexture(12 ,std::make_unique<Texture>("bqueen.png"));
+    updateTexture(13, std::make_unique<Texture>("bking.png"));
     zwindow.setName("ZChess");
 }
 
@@ -427,8 +428,8 @@ void movePeice() {
 }
 
 unsigned int squareClicked() {
-    if (zwindow.getMouseX() > .65f) return BOARD_SQUARES;
-    return (unsigned int)((zwindow.getMouseX() * 1.5f) * BOARD_SIZE) + (unsigned int)(zwindow.getMouseY() * BOARD_SIZE) * BOARD_SIZE;
+    if (zwindow.getMouseX(camera.aspect) < -1.125f || zwindow.getMouseX(camera.aspect) > .88f) return BOARD_SQUARES;
+    return (unsigned int)((((zwindow.getMouseX(camera.aspect) + 1.125f) * 1.13f) * BOARD_SIZE) / 2.25f) + (unsigned int)((zwindow.getMouseY() + 1.f) * BOARD_SIZE / 2) * BOARD_SIZE;
 }
 
 void tick() {
@@ -441,8 +442,8 @@ void tick() {
         posy = sprites[peice].position[1];
     }
     else if (zwindow.LMBPressed()) { /* drag peice */
-        sprites[peice].position[0] = -1.f + zwindow.getMouseX() * 2.f;
-        sprites[peice].position[1] = -1.f + zwindow.getMouseY() * 2.f;
+        sprites[peice].position[0] = zwindow.getMouseX(camera.aspect);
+        sprites[peice].position[1] = zwindow.getMouseY();
         ZEngineSpriteRemap = true;
     }
     else if (zwindow.LMBReleased()) { /* place peice */
