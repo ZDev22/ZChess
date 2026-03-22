@@ -12,7 +12,7 @@ An example implementation on how to init and use zengine, as well as a few zdeps
 #define ZENGINE_DEFAULT_TEXTURE "empty.png"
 #define ZENGINE_DISABLE_AUDIO
 #define ZENGINE_MAX_FRAMES_IN_FLIGHT 2
-#define ZENGINE_MAX_SPRITES 100000
+#define ZENGINE_MAX_SPRITES 10000
 #define ZENGINE_MAX_TEXTURES 64
 #include "zengine.hpp"
 

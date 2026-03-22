@@ -14,7 +14,7 @@ ZChess is a chess engine written by ZDev, you can take your own peices but it's 
 #include "zengine.hpp"
 #include "zwindow.hpp"
 
-#define BOARD_SIZE 8 /* MIN BOARD SIZE: 8 | MAX BOARD SIZE: 255 */
+#define BOARD_SIZE 8 /* MIN BOARD SIZE: 8 | MAX BOARD SIZE: 255  (MAX_SPRITES is capped at 65 in main.cpp)*/
 #define BOARD_SQUARES BOARD_SIZE * BOARD_SIZE
 
 unsigned char board[BOARD_SQUARES]      = {0}; /* create board */
@@ -65,10 +65,6 @@ inline bool isTwoFromLeftEdge() { return peice % BOARD_SIZE == 1; }
 inline bool isTwoFromRightEdge() { return peice % BOARD_SIZE == BOARD_SIZE - 2; }
 inline bool isTwoFromTop() { return peice < BOARD_SIZE * 2; }
 inline bool isTwoFromBottom() { return peice > (BOARD_SQUARES - BOARD_SIZE * 2) - 1; }
-unsigned char emptyTileTexture(unsigned int index) {
-    if (index == 0) return 0;
-    return (index + index / BOARD_SIZE) % 2;
-}
 
 ZChess(ZWindow& zwindow) : zwindow(zwindow) {
     memset(&board[BOARD_SIZE], 1, BOARD_SIZE); /* create black pawns */
@@ -86,17 +82,17 @@ ZChess(ZWindow& zwindow) : zwindow(zwindow) {
     float y = -.88f;
     for (unsigned int i = 0; i < BOARD_SIZE; i++) {
         for (unsigned int j = 0; j < BOARD_SIZE; j++) {
-            if (board[i * BOARD_SIZE + j] == 0) createSprite(squareModel, emptyTileTexture(i * BOARD_SIZE + j), x, y, .25f, .25f, 0.f);
-            else createSprite(squareModel, board[i * BOARD_SIZE + j] + (isPeiceBlack(i * BOARD_SIZE + j) ? 7 : 1), x, y, .25f, .25f, 0.f);
+            if (board[i * BOARD_SIZE + j] == 0) createSprite(squareModel, 1, x, y, .22f, .22f, 0.f);
+            else createSprite(squareModel, board[i * BOARD_SIZE + j] + (isPeiceBlack(i * BOARD_SIZE + j) ? 7 : 1), x, y, .22f, .22f, 0.f);
             sprites[spritesSize - 1].setRotationMatrix();
             x += ((float)(id / BOARD_SIZE) / id) * 2.f;
         }
         x = -1.f;
-        y += ((float)(id / BOARD_SIZE) / id) * 2.f;
+        y += ((float)(id / BOARD_SIZE) / id) * 2.02f;
     }
 
-    updateTexture(0, std::make_unique<Texture>("empty.png"));
-    updateTexture(1, std::make_unique<Texture>("empty2.png"));
+    updateTexture(0, std::make_unique<Texture>("chessboard.png"));
+    updateTexture(1, std::make_unique<Texture>("empty.png"));
     updateTexture(2, std::make_unique<Texture>("pawn.png"));
     updateTexture(3, std::make_unique<Texture>("rook.png"));
     updateTexture(4, std::make_unique<Texture>("knight.png"));
@@ -110,6 +106,9 @@ ZChess(ZWindow& zwindow) : zwindow(zwindow) {
     updateTexture(12 ,std::make_unique<Texture>("bqueen.png"));
     updateTexture(13, std::make_unique<Texture>("bking.png"));
     zwindow.setName("ZChess");
+
+    createSprite(squareModel, 0, -.13f, 0.f, 2.01f, 2.f, 0.f);
+    sprites[spritesSize - 1].setRotationMatrix();
 }
 
 void pawnMovement() {
@@ -335,7 +334,7 @@ void movePeice() {
                 if (board[to] == 0 && abs(to - peice) % BOARD_SIZE != 0) { /* the pawn moved to an empty square, but also took */
                     long long pos = isPeiceBlack(peice) ? -BOARD_SIZE : BOARD_SIZE;
                     board[to + pos] = 0;
-                    sprites[to + pos].textureIndex = emptyTileTexture(to + pos);
+                    sprites[to + pos].textureIndex = 1;
                 }
             }
 
@@ -346,7 +345,7 @@ void movePeice() {
             board[to] = board[peice];
             sprites[to].textureIndex = board[to] + (isPeiceBlack(to) ? 7 : 1);
             board[peice] = 0;
-            sprites[peice].textureIndex = emptyTileTexture(peice);
+            sprites[peice].textureIndex = 1;
 
             /* check for promotion */
             promotion = BOARD_SQUARES;
@@ -377,7 +376,7 @@ void movePeice() {
                     if (isPeiceBlack(to)) {
                         if (to - peice > 0) { /* king moved left, move left rook */
                             board[BOARD_SIZE - 1] = 0;
-                            sprites[BOARD_SIZE - 1].textureIndex = emptyTileTexture(BOARD_SIZE - 1);
+                            sprites[BOARD_SIZE - 1].textureIndex = 1;
                             board[to - 1] = 2;
                             sprites[to - 1].textureIndex = 9;
                             blackPeice[to - 1] = 1;
@@ -385,7 +384,7 @@ void movePeice() {
                         }
                         else { /* king moved left, move right rook */
                             board[0] = 0;
-                            sprites[0].textureIndex = emptyTileTexture(0);
+                            sprites[0].textureIndex = 1;
                             board[to + 1] = 2;
                             sprites[to + 1].textureIndex = 9;
                             blackPeice[to + 1] = 1;
@@ -395,13 +394,13 @@ void movePeice() {
                     else {
                         if (to - peice > 0) { /* king moved left, move left rook */
                             board[BOARD_SQUARES - 1] = (BOARD_SQUARES - 1) % 2;
-                            sprites[BOARD_SQUARES - 1].textureIndex = emptyTileTexture(0);
+                            sprites[BOARD_SQUARES - 1].textureIndex = 1;
                             board[to - 1] = 2;
                             sprites[to - 1].textureIndex = 3;
                         }
                         else { /* king moved left, move right rook */
                             board[BOARD_SQUARES - BOARD_SIZE] = (BOARD_SQUARES - BOARD_SIZE) % 2;
-                            sprites[BOARD_SQUARES - BOARD_SIZE].textureIndex = emptyTileTexture(0);
+                            sprites[BOARD_SQUARES - BOARD_SIZE].textureIndex = 1;
                             board[to + 1] = 2;
                             sprites[to + 1].textureIndex = 3;
                         }
