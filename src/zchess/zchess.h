@@ -1,33 +1,30 @@
 /* licensed under GPL v3.0 see https://github.com/ZDev22/ZChess/blob/main/LICENSE for current license
 
-ZChess is a chess engine written by ZDev, you can take your own peices but it's ok
+ZChess is a chess engine written by ZDev, you can take your own peices but it ok
 
 #define MIDNIGHT_ZCHESS - queens can move like knights
 */
 
-#ifndef ZCHESS_HPP
-#define ZCHESS_HPP
+#ifndef ZCHESS_H
+#define ZCHESS_H
 
-#include <string.h>
-#include <vector>
-
-#include "zengine.hpp"
-#include "zwindow.hpp"
+#include "../zengine.h"
 
 #define BOARD_SIZE 8 /* MIN BOARD SIZE: 8 | MAX BOARD SIZE: 255  (MAX_SPRITES is capped at 65 in main.cpp)*/
 #define BOARD_SQUARES BOARD_SIZE * BOARD_SIZE
 
 unsigned char board[BOARD_SQUARES]      = {0}; /* create board */
-bool blackPeice[BOARD_SQUARES]          = {0}; /* black peice positions */
+_Bool blackPeice[BOARD_SQUARES]         = {0}; /* black peice positions */
 unsigned long long lastMove             =  0 ; /* keep track of the last move played [(first 32 bits - where the peice was) | (second 32 bits - where the peice moved)]*/
-std::vector<unsigned int> movements;           /* all possible movements for selected peice*/
-bool movingPeice                        =  0 ; /* flag to know if your mvoing a peice */
-bool kingMoved[2]                       = {0}; /* keep track if kings have moved, 0 = white, 1 = black */
-unsigned int promotion                  = BOARD_SQUARES; /* the position of the promoted pawn */
+unsigned int movements[100];                   /* all possible movements for selected peice */
+unsigned char movementSize              =  0 ; /* keep track of how many items are in the movements list */
+_Bool movingPeice                       =  0 ; /* flag to know if your mvoing a peice */
+_Bool kingMoved[2]                      = {0}; /* keep track if kings have moved, 0 = white, 1 = black */
+unsigned int promotion        = BOARD_SQUARES; /* the position of the promoted pawn */
 
 long long peice  = 0  ;
 unsigned int to  = 0  ;
-unsigned int id  = 0  ;
+int id           = 0  ;
 float posx       = 0.f;
 float posy       = 0.f;
 
@@ -52,21 +49,32 @@ float posy       = 0.f;
 56 57 58 59 60 61 62 63
 */
 
-struct ZChess {
-
-public:
+float getMouseX(float aspect) {
+    i32 x = 0;
+    i32 sizex = 0;
+    RGFW_window_getMouse(zwindow, &x, NULL);
+    RGFW_window_getSize(zwindow, &sizex, NULL);
+    return ((((float)x / sizex) * 2.f) - 1.f) * aspect;
+}
+float getMouseY() {
+    i32 y = 0;
+    i32 sizey = 0;
+    RGFW_window_getMouse(zwindow, NULL, &y);
+    RGFW_window_getSize(zwindow, NULL, &sizey);
+    return (((float)y / sizey) * 2.f) - 1.f;
+}
 
 inline unsigned char isPeiceBlack(unsigned int index) { return blackPeice[index]; }
-inline bool isOnLeftEdge() { return peice % BOARD_SIZE == 0; }
-inline bool isOnRightEdge() { return peice % BOARD_SIZE == BOARD_SIZE - 1; }
-inline bool isOnTop() { return peice < BOARD_SIZE; }
-inline bool isOnBottom() { return peice > (BOARD_SQUARES - BOARD_SIZE) - 1; }
-inline bool isTwoFromLeftEdge() { return peice % BOARD_SIZE == 1; }
-inline bool isTwoFromRightEdge() { return peice % BOARD_SIZE == BOARD_SIZE - 2; }
-inline bool isTwoFromTop() { return peice < BOARD_SIZE * 2; }
-inline bool isTwoFromBottom() { return peice > (BOARD_SQUARES - BOARD_SIZE * 2) - 1; }
+inline _Bool isOnLeftEdge(void) { return peice % BOARD_SIZE == 0; }
+inline _Bool isOnRightEdge(void) { return peice % BOARD_SIZE == BOARD_SIZE - 1; }
+inline _Bool isOnTop(void) { return peice < BOARD_SIZE; }
+inline _Bool isOnBottom(void) { return peice > (BOARD_SQUARES - BOARD_SIZE) - 1; }
+inline _Bool isTwoFromLeftEdge(void) { return peice % BOARD_SIZE == 1; }
+inline _Bool isTwoFromRightEdge(void) { return peice % BOARD_SIZE == BOARD_SIZE - 2; }
+inline _Bool isTwoFromTop(void) { return peice < BOARD_SIZE * 2; }
+inline _Bool isTwoFromBottom(void) { return peice > (BOARD_SQUARES - BOARD_SIZE * 2) - 1; }
 
-ZChess(ZWindow& zwindow) : zwindow(zwindow) {
+void initZChess(void) {
     memset(&board[BOARD_SIZE], 1, BOARD_SIZE); /* create black pawns */
     memset(&board[BOARD_SQUARES - BOARD_SIZE * 2], 1, BOARD_SIZE); /* create white pawns*/
     board[0] = board[BOARD_SIZE - 1] = board[BOARD_SQUARES - BOARD_SIZE] = board[BOARD_SQUARES - 1] = 2; /* create rooks */
@@ -77,38 +85,57 @@ ZChess(ZWindow& zwindow) : zwindow(zwindow) {
     memset(blackPeice, 1, BOARD_SQUARES / 2 - 1); /* set black peices */
 
     /* load sprites */
-    id = zwindow.getSizeX();
+    RGFW_window_getSize(zwindow, &id, NULL);
     float x = -1.f;
     float y = -.88f;
     for (unsigned int i = 0; i < BOARD_SIZE; i++) {
         for (unsigned int j = 0; j < BOARD_SIZE; j++) {
             if (board[i * BOARD_SIZE + j] == 0) createSprite(squareModel, 1, x, y, .22f, .22f, 0.f);
             else createSprite(squareModel, board[i * BOARD_SIZE + j] + (isPeiceBlack(i * BOARD_SIZE + j) ? 7 : 1), x, y, .22f, .22f, 0.f);
-            sprites[spritesSize - 1].setRotationMatrix();
+            setRotationMatrix(&sprites[spritesSize - 1]);
             x += ((float)(id / BOARD_SIZE) / id) * 2.f;
         }
         x = -1.f;
         y += ((float)(id / BOARD_SIZE) / id) * 2.02f;
     }
 
-    updateTexture(0, std::make_unique<Texture>("chessboard.png"));
-    updateTexture(1, std::make_unique<Texture>("empty.png"));
-    updateTexture(2, std::make_unique<Texture>("pawn.png"));
-    updateTexture(3, std::make_unique<Texture>("rook.png"));
-    updateTexture(4, std::make_unique<Texture>("knight.png"));
-    updateTexture(5, std::make_unique<Texture>("bishop.png"));
-    updateTexture(6 ,std::make_unique<Texture>("queen.png"));
-    updateTexture(7, std::make_unique<Texture>("king.png"));
-    updateTexture(8, std::make_unique<Texture>("bpawn.png"));
-    updateTexture(9, std::make_unique<Texture>("brook.png"));
-    updateTexture(10, std::make_unique<Texture>("bknight.png"));
-    updateTexture(11, std::make_unique<Texture>("bbishop.png"));
-    updateTexture(12 ,std::make_unique<Texture>("bqueen.png"));
-    updateTexture(13, std::make_unique<Texture>("bking.png"));
-    zwindow.setName("ZChess");
+    Texture texture;
+    createTexture(&texture, "chessboard.png");
+    updateTexture(0, &texture);
+    createTexture(&texture, "empty.png");
+    updateTexture(1, &texture);
+    createTexture(&texture, "pawn.png");
+    updateTexture(2, &texture);
+    createTexture(&texture, "rook.png");
+    updateTexture(3, &texture);
+    createTexture(&texture, "knight.png");
+    updateTexture(4, &texture);
+    createTexture(&texture, "bishop.png");
+    updateTexture(5, &texture);
+    createTexture(&texture, "queen.png");
+    updateTexture(6, &texture);
+    createTexture(&texture, "king.png");
+    updateTexture(7, &texture);
+    createTexture(&texture, "bpawn.png");
+    updateTexture(8, &texture);
+    createTexture(&texture, "brook.png");
+    updateTexture(9, &texture);
+    createTexture(&texture, "bknight.png");
+    updateTexture(10, &texture);
+    createTexture(&texture, "bbishop.png");
+    updateTexture(11, &texture);
+    createTexture(&texture, "bqueen.png");
+    updateTexture(12, &texture);
+    createTexture(&texture, "bking.png");
+    updateTexture(13, &texture);
 
     createSprite(squareModel, 0, -.13f, 0.f, 2.01f, 2.f, 0.f);
-    sprites[spritesSize - 1].setRotationMatrix();
+    setRotationMatrix(&sprites[spritesSize - 1]);
+}
+
+void addMove(unsigned int move) {
+    movements[movementSize] = move;
+    movementSize++;
 }
 
 void pawnMovement() {
@@ -116,18 +143,18 @@ void pawnMovement() {
 
     /* check if pawn can move forward */
     if (board[peice + move] == 0) {
-        movements.emplace_back(peice + move);
+        addMove(peice + move);
 
         if ((move == BOARD_SIZE && peice - BOARD_SIZE < BOARD_SIZE) || /* check if black pawn is on home row */
             (move == -BOARD_SIZE && peice > BOARD_SQUARES - (BOARD_SIZE * 2 + 1))) { /* check if white pawn is on home row */
 
-            if (board[peice + move * 2] == 0) { movements.emplace_back(peice + move * 2); } /* if so, allow moving two spaces */
+            if (board[peice + move * 2] == 0) { addMove(peice + move * 2); } /* if so, allow moving two spaces */
         }
     }
 
     /* check if pawn can capture */
-    if (board[peice + move + 1] != 0 && !isOnRightEdge()) { movements.emplace_back(peice + move + 1); }
-    if (board[peice + move - 1] != 0 && !isOnLeftEdge()) { movements.emplace_back(peice + move - 1); }
+    if (board[peice + move + 1] != 0 && !isOnRightEdge()) { addMove(peice + move + 1); }
+    if (board[peice + move - 1] != 0 && !isOnLeftEdge()) { addMove(peice + move - 1); }
 
     /* check if they are en-passaunt-able */
     unsigned int LastMove = (unsigned int)(lastMove >> 32);
@@ -136,7 +163,7 @@ void pawnMovement() {
 
         if ((unsigned int)lastMove == LastMove + (move * 2)) { /* the pawn moved two spaces the last move */
             if (!(move == (BOARD_SIZE ^ !isPeiceBlack(LastMove)))) { /* both pawns are different colors */
-                movements.emplace_back(LastMove + move); /* en-passaunt */
+                addMove(LastMove + move); /* en-passaunt */
             }
         }
     }
@@ -144,170 +171,170 @@ void pawnMovement() {
 
 void rookMovement() {
     /* up movement*/
-    bool stop = false;
+    _Bool stop = 0;
     unsigned int pos = 0;
     if (!isOnTop()) { /* make sure the rook isnt on the edge of the board */
         for (unsigned int i = 1; i < BOARD_SIZE; i++) {
             if (stop) break;
             pos = peice - (i * BOARD_SIZE);
-            if (pos < 0 || pos >= BOARD_SQUARES) break;
-            movements.emplace_back(pos);
-            if (board[pos] != 0) stop = true;
-            if (isOnTop()) stop = true;
+            if (pos >= BOARD_SQUARES) break;
+            addMove(pos);
+            if (board[pos] != 0) stop = 1;
+            if (isOnTop()) stop = 1;
         }
     }
 
     /* down movement*/
-    stop = false;
+    stop = 0;
     if (!isOnBottom()) { /* make sure the rook isnt on the edge of the board */
         for (unsigned int i = 1; i < BOARD_SIZE; i++) {
             if (stop) break;
             pos = peice + i * BOARD_SIZE;
-            if (pos < 0 || pos >= BOARD_SQUARES) break;
-            movements.emplace_back(pos);
-            if (board[pos] != 0) stop = true;
-            if (isOnBottom()) stop = true;
+            if (pos >= BOARD_SQUARES) break;
+            addMove(pos);
+            if (board[pos] != 0) stop = 1;
+            if (isOnBottom()) stop = 1;
         }
     }
 
     /* left movement*/
-    stop = false;
+    stop = 0;
     if (!isOnLeftEdge()) { /* make sure the rook isnt on the edge of the board */
         for (unsigned int i = 1; i < BOARD_SIZE; i++) {
             if (stop) break;
             pos = peice - i;
-            if (pos < 0 || pos >= BOARD_SQUARES) break;
-            movements.emplace_back(pos);
-            if (board[pos] != 0) stop = true;
-            if (isOnLeftEdge()) stop = true;
+            if (pos >= BOARD_SQUARES) break;
+            addMove(pos);
+            if (board[pos] != 0) stop = 1;
+            if (isOnLeftEdge()) stop = 1;
         }
     }
 
     /* right movement*/
-    stop = false;
+    stop = 0;
     if (!isOnRightEdge()) { /* make sure the rook isnt on the edge of the board */
         for (unsigned int i = 1; i < BOARD_SIZE; i++) {
             if (stop) break;
             pos = peice + i;
-            if (pos < 0 || pos >= BOARD_SQUARES) break;
-            movements.emplace_back(pos);
-            if (board[pos] != 0) stop = true;
-            if (isOnRightEdge()) stop = true;
+            if (pos >= BOARD_SQUARES) break;
+            addMove(pos);
+            if (board[pos] != 0) stop = 1;
+            if (isOnRightEdge()) stop = 1;
         }
     }
 }
 
 void knightMovement() {
     if (!isOnBottom() && !isTwoFromBottom()) {
-        if (!isOnLeftEdge()) movements.emplace_back((peice + BOARD_SIZE * 2) - 1);
-        if (!isOnRightEdge()) movements.emplace_back((peice + BOARD_SIZE * 2) + 1);
+        if (!isOnLeftEdge()) addMove((peice + BOARD_SIZE * 2) - 1);
+        if (!isOnRightEdge()) addMove((peice + BOARD_SIZE * 2) + 1);
     }
 
     if (!isOnTop() && !isTwoFromTop()) {
-        if (!isOnLeftEdge()) movements.emplace_back((peice - BOARD_SIZE * 2) - 1);
-        if (!isOnRightEdge()) movements.emplace_back((peice - BOARD_SIZE * 2) + 1);
+        if (!isOnLeftEdge()) addMove((peice - BOARD_SIZE * 2) - 1);
+        if (!isOnRightEdge()) addMove((peice - BOARD_SIZE * 2) + 1);
     }
 
     if (!isOnRightEdge() && !isTwoFromRightEdge()) {
-        if (!isOnTop()) movements.emplace_back(peice + 2 - BOARD_SIZE);
-        if (!isOnBottom()) movements.emplace_back(peice + 2 + BOARD_SIZE);
+        if (!isOnTop()) addMove(peice + 2 - BOARD_SIZE);
+        if (!isOnBottom()) addMove(peice + 2 + BOARD_SIZE);
     }
 
     if (!isOnLeftEdge() && !isTwoFromLeftEdge()) {
-        if (!isOnTop()) movements.emplace_back(peice - 2 - BOARD_SIZE);
-        if (!isOnBottom()) movements.emplace_back(peice - 2 + BOARD_SIZE);
+        if (!isOnTop()) addMove(peice - 2 - BOARD_SIZE);
+        if (!isOnBottom()) addMove(peice - 2 + BOARD_SIZE);
     }
 }
 
 void bishopMovement() {
     /* up -> movement*/
-    bool stop = false;
+    _Bool stop = 0;
     unsigned int pos = 0;
     if (!isOnTop() && !isOnRightEdge()) { /* make sure the bishop isnt on the edge of the board */
         for (unsigned int i = 1; i < BOARD_SQUARES; i++) {
             if (stop) break;
             pos = peice - (i * BOARD_SIZE - i);
-            if (pos < 0 || pos >= BOARD_SQUARES) break;
-            movements.emplace_back(pos);
-            if (board[pos] != 0) stop = true;
-            if (isOnTop() || isOnRightEdge()) stop = true;
+            if (pos >= BOARD_SQUARES) break;
+            addMove(pos);
+            if (board[pos] != 0) stop = 1;
+            if (isOnTop() || isOnRightEdge()) stop = 1;
         }
     }
 
     /* up <- movement*/
-    stop = false;
+    stop = 0;
     if (!isOnTop() && !isOnLeftEdge()) { /* make sure the bishop isnt on the edge of the board */
         for (unsigned int i = 1; i < BOARD_SQUARES; i++) {
             if (stop) break;
             pos = peice - (i * BOARD_SIZE + i);
-            if (pos < 0 || pos >= BOARD_SQUARES) break;
-            movements.emplace_back(pos);
-            if (board[pos] != 0) stop = true;
-            if (isOnTop() || isOnLeftEdge()) stop = true;
+            if (pos >= BOARD_SQUARES) break;
+            addMove(pos);
+            if (board[pos] != 0) stop = 1;
+            if (isOnTop() || isOnLeftEdge()) stop = 1;
         }
     }
 
     /* down -> movement*/
-    stop = false;
+    stop = 0;
     if (!isOnBottom() && !isOnRightEdge()) { /* make sure the bishop isnt on the edge of the board */
         for (unsigned int i = 1; i < BOARD_SQUARES; i++) {
             if (stop) break;
             pos = peice + (i * BOARD_SIZE + i);
-            if (pos < 0 || pos >= BOARD_SQUARES) break;
-            movements.emplace_back(pos);
-            if (board[pos] != 0) stop = true;
-            if (isOnBottom() || isOnRightEdge()) stop = true;
+            if (pos >= BOARD_SQUARES) break;
+            addMove(pos);
+            if (board[pos] != 0) stop = 1;
+            if (isOnBottom() || isOnRightEdge()) stop = 1;
         }
     }
 
     /* down <- movement*/
-    stop = false;
+    stop = 0;
     if (!isOnBottom() && !isOnLeftEdge()) { /* make sure the bishop isnt on the edge of the board */
         for (unsigned int i = 1; i < BOARD_SQUARES; i++) {
             if (stop) break;
             pos = peice + (i * BOARD_SIZE - i);
-            if (pos < 0 || pos >= BOARD_SQUARES) break;
-            movements.emplace_back(pos);
-            if (board[pos] != 0) stop = true;
-            if (isOnBottom() || isOnLeftEdge()) stop = true;
+            if (pos >= BOARD_SQUARES) break;
+            addMove(pos);
+            if (board[pos] != 0) stop = 1;
+            if (isOnBottom() || isOnLeftEdge()) stop = 1;
         }
     }
 }
 
 void kingMovement() {
     if (!isOnBottom()) { /* bottom movement */
-        movements.emplace_back(peice + BOARD_SIZE);
-        if (!isOnLeftEdge()) { movements.emplace_back(peice + BOARD_SIZE - 1); }
-        if (!isOnRightEdge()) { movements.emplace_back(peice + BOARD_SIZE + 1); }
+        addMove(peice + BOARD_SIZE);
+        if (!isOnLeftEdge()) { addMove(peice + BOARD_SIZE - 1); }
+        if (!isOnRightEdge()) { addMove(peice + BOARD_SIZE + 1); }
     }
 
     if (!isOnTop()) { /* top movement */
-        movements.emplace_back(peice - BOARD_SIZE);
-        if (!isOnLeftEdge()) { movements.emplace_back(peice - BOARD_SIZE - 1); }
-        if (!isOnRightEdge()) { movements.emplace_back(peice - BOARD_SIZE + 1); }
+        addMove(peice - BOARD_SIZE);
+        if (!isOnLeftEdge()) { addMove(peice - BOARD_SIZE - 1); }
+        if (!isOnRightEdge()) { addMove(peice - BOARD_SIZE + 1); }
     }
 
     /* side movement */
-    if (!isOnLeftEdge()) { movements.emplace_back(peice - 1); }
-    if (!isOnRightEdge()) { movements.emplace_back(peice + 1); }
+    if (!isOnLeftEdge()) { addMove(peice - 1); }
+    if (!isOnRightEdge()) { addMove(peice + 1); }
 
     /* castling */
     if (isPeiceBlack(peice)) {
         if (!kingMoved[1]) { /* king hasn't moved */
-            if (board[0] == 2) movements.emplace_back(2);
-            if (board[BOARD_SIZE - 1] == 2) movements.emplace_back(BOARD_SIZE - 2);
+            if (board[0] == 2) addMove(2);
+            if (board[BOARD_SIZE - 1] == 2) addMove(BOARD_SIZE - 2);
         }
     }
     else {
         if (!kingMoved[0]) { /* king hasn't moved  */
-            if (board[BOARD_SQUARES - 1] == 2) movements.emplace_back(BOARD_SQUARES - 2);
-            if (board[BOARD_SQUARES - BOARD_SIZE] == 2) movements.emplace_back(BOARD_SQUARES - BOARD_SIZE + 2);
+            if (board[BOARD_SQUARES - 1] == 2) addMove(BOARD_SQUARES - 2);
+            if (board[BOARD_SQUARES - BOARD_SIZE] == 2) addMove(BOARD_SQUARES - BOARD_SIZE + 2);
         }
     }
 }
 
 void checkPeice(unsigned int index) {
-    movements.clear();
+    movementSize = 0;
 
     switch(board[index]) {
     case 0: { break; }
@@ -328,7 +355,7 @@ void checkPeice(unsigned int index) {
 }
 
 void movePeice() {
-    for (unsigned int i = 0; i < movements.size(); i++) {
+    for (unsigned int i = 0; i < movementSize; i++) {
         if (to == movements[i]) {
             if (board[peice] == 1) { /* check for en-passaunt */
                 if (board[to] == 0 && abs(to - peice) % BOARD_SIZE != 0) { /* the pawn moved to an empty square, but also took */
@@ -355,7 +382,7 @@ void movePeice() {
                         board[to] = 5;
                         sprites[to].textureIndex = 12;
                         promotion = to;
-                        zwindow.setName("PROMOTION! 0 = pawn, 1 = rook, 2 = bishop, 3 = knight, 4 = queen, 5 = king");
+                        RGFW_window_setName(zwindow, "PROMOTION! 0 = pawn, 1 = rook, 2 = bishop, 3 = knight, 4 = queen, 5 = king");
                     }
                 }
                 else {
@@ -363,7 +390,7 @@ void movePeice() {
                         board[to] = 5;
                         sprites[to].textureIndex = 6;
                         promotion = to;
-                        zwindow.setName("PROMOTION! 0 = pawn, 1 = rook, 2 = bishop, 3 = knight, 4 = queen, 5 = king");
+                        RGFW_window_setName(zwindow, "PROMOTION! 0 = pawn, 1 = rook, 2 = bishop, 3 = knight, 4 = queen, 5 = king");
                     }
                 }
             }
@@ -409,7 +436,7 @@ void movePeice() {
             }
 
             /* check for checkmate */
-            bool kingsAlive[2] = {0};
+            _Bool kingsAlive[2] = {0};
             unsigned int kingPos[2] = {65}; /* keep track of king position for checks */
 
             for (unsigned int i = 0; i < BOARD_SQUARES; i++) {
@@ -418,8 +445,8 @@ void movePeice() {
                     kingPos[isPeiceBlack(i)] = i;
                 }
             }
-            if (kingsAlive[0] && !kingsAlive[1]) { zwindow.setName("CHECKMATE! White wins!"); }
-            else if (!kingsAlive[0] && kingsAlive[1]) { zwindow.setName("CHECKMATE! Black wins!"); }
+            if (kingsAlive[0] && !kingsAlive[1]) { RGFW_window_setName(zwindow, "CHECKMATE! White wins!"); }
+            else if (!kingsAlive[0] && kingsAlive[1]) { RGFW_window_setName(zwindow, "CHECKMATE! Black wins!"); }
 
             return;
         }
@@ -427,69 +454,65 @@ void movePeice() {
 }
 
 unsigned int squareClicked() {
-    if (zwindow.getMouseX(camera.aspect) < -1.125f || zwindow.getMouseX(camera.aspect) > .88f) return BOARD_SQUARES;
-    return (unsigned int)((((zwindow.getMouseX(camera.aspect) + 1.125f) * 1.13f) * BOARD_SIZE) / 2.25f) + (unsigned int)((zwindow.getMouseY() + 1.f) * BOARD_SIZE / 2) * BOARD_SIZE;
+    if (getMouseX(camera.aspect) < -1.125f || getMouseX(camera.aspect) > .88f) return BOARD_SQUARES;
+    return (unsigned int)((((getMouseX(camera.aspect) + 1.125f) * 1.13f) * BOARD_SIZE) / 2.25f) + (unsigned int)((getMouseY() + 1.f) * BOARD_SIZE / 2) * BOARD_SIZE;
 }
 
-void tick() {
-    if (zwindow.LMBHit()) { /* select peice */
-        zwindow.setName("ZChess");
+void zchessTick() {
+    if (RGFW_isMousePressed(RGFW_mouseLeft)) { /* select peice */
+        RGFW_window_setName(zwindow, "ZChess");
         peice = squareClicked();
         checkPeice(peice);
 
         posx = sprites[peice].position[0];
         posy = sprites[peice].position[1];
     }
-    else if (zwindow.LMBPressed()) { /* drag peice */
-        sprites[peice].position[0] = zwindow.getMouseX(camera.aspect);
-        sprites[peice].position[1] = zwindow.getMouseY();
-        ZEngineSpriteRemap = true;
+    else if (RGFW_isMouseDown(RGFW_mouseLeft)) { /* drag peice */
+        sprites[peice].position[0] = getMouseX(camera.aspect);
+        sprites[peice].position[1] = getMouseY();
+        ZEngineSpriteRemap = 1;
     }
-    else if (zwindow.LMBReleased()) { /* place peice */
+    else if (RGFW_isMouseReleased(RGFW_mouseLeft)) { /* place peice */
         sprites[peice].position[0] = posx;
         sprites[peice].position[1] = posy;
 
         to = squareClicked();
         movePeice();
         lastMove = (unsigned int)peice + ((unsigned long long)to << 32);
-        ZEngineSpriteRemap = true;
+        ZEngineSpriteRemap = 1;
     }
     else if (promotion != BOARD_SQUARES) {
-        if (zwindow.keyHit(RGFW_0)) {
+        if (RGFW_isKeyPressed(RGFW_0)) {
             board[promotion] = 1;
             sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 8 : 2;
-            ZEngineSpriteRemap = true;
+            ZEngineSpriteRemap = 1;
         }
-        else if (zwindow.keyHit(RGFW_1)) {
+        else if (RGFW_isKeyPressed(RGFW_1)) {
             board[promotion] = 2;
             sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 9 : 3;
-            ZEngineSpriteRemap = true;
+            ZEngineSpriteRemap = 1;
         }
-        else if (zwindow.keyHit(RGFW_2)) {
+        else if (RGFW_isKeyPressed(RGFW_2)) {
             board[promotion] = 3;
             sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 10 : 4;
-            ZEngineSpriteRemap = true;
+            ZEngineSpriteRemap = 1;
         }
-        else if (zwindow.keyHit(RGFW_3)) {
+        else if (RGFW_isKeyPressed(RGFW_3)) {
             board[promotion] = 4;
             sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 11 : 5;
-            ZEngineSpriteRemap = true;
+            ZEngineSpriteRemap = 1;
         }
-        else if (zwindow.keyHit(RGFW_4)) {
+        else if (RGFW_isKeyPressed(RGFW_4)) {
             board[promotion] = 5;
             sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 12 : 6;
-            ZEngineSpriteRemap = true;
+            ZEngineSpriteRemap = 1;
         }
-        else if (zwindow.keyHit(RGFW_5)) {
+        else if (RGFW_isKeyPressed(RGFW_5)) {
             board[promotion] = 6;
             sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 13 : 7;
-            ZEngineSpriteRemap = true;
+            ZEngineSpriteRemap = 1;
         }
     }
 }
-
-private:
-    ZWindow& zwindow;
-};
 
 #endif // ZCHESS_HPP
