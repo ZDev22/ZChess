@@ -18,6 +18,7 @@
 #ifndef ZENGINE_H
 #define ZENGINE_H
 
+#ifdef ZENGINE_IMPLEMENTATION
 /* define a few necissary macros if not already defined */
 #ifndef ZENGINE_MAX_FRAMES_IN_FLIGHT
     #define ZENGINE_MAX_FRAMES_IN_FLIGHT 2
@@ -32,6 +33,11 @@
 #if ZENGINE_MAX_SPRITES > 4096 && defined(__APPLE__)
     #undef ZENGINE_MAX_SPRITES
     #define ZENGINE_MAX_SPRITES 4096
+#endif
+
+#if ZENGINE_MAX_TEXTURES < 25
+    #undef ZENGINE_MAX_TEXTURES
+    #define ZENGINE_MAX_TEXTURES 25
 #endif
 
 #define SIZEOF_SPRITE_DATA 48 /* the bytes of the Sprite struct sent to the gpu, stays constant */
@@ -52,6 +58,8 @@
 #ifndef ZENGINE_DEFAULT_TEXTURE
     #define ZENGINE_DEFAULT_TEXTURE "e.png"
 #endif
+
+#endif // ZENGINE_IMPLEMENTATION
 
 /* dependencies */
 #if defined(ZENGINE_IMPLEMENTATION) && !defined(ZENGINE_DEPS_DEFINED)
@@ -129,6 +137,7 @@ typedef struct __attribute__((aligned(16))) Sprite {
     float depth;
     unsigned int textureIndex;
     float rotation;
+    float padding;
 
     /* CPU-side only */
     Model* model;
@@ -175,81 +184,11 @@ extern unsigned int spritesSize;
 extern struct Model* squareModel;
 extern ZENGINE_AUDIO;
 extern Camera camera;
+extern _Bool framebufferResized;
+extern RGFW_window* zwindow;
 #ifdef ZENGINE_SPRITE_MAPMODE_MANUAL
     extern _Bool ZEngineSpriteRemap;
 #endif
-
-#ifdef ZENGINE_IMPLEMENTATION
-
-/* kinda just chillin ngl */
-Camera camera;
-ZENGINE_AUDIO;
-
-double deltaTime = 0.0; /* deltaTime, do what you will. Example implementation in main.cpp */
-_Bool ZEngineClose = 0; /* flag to show when the engine is closing */
-#ifdef ZENGINE_SPRITE_MAPMODE_MANUAL
-    _Bool ZEngineSpriteRemap = 1; /* flag to update sprite data buffer with ZENGINE_SPRITE_MAPMODE_MANUAL */
-#endif
-
-/* texture vecs */
-struct Texture* spriteTextures = NULL;
-char* spriteData;
-
-/* window vars */
-_Bool framebufferResized = 0;
-RGFW_window* zwindow = NULL;
-VkExtent2D windowExtent;
-
-/* device vars */
-VkInstance instance;
-VkCommandPool commandPool;
-VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-VkPhysicalDeviceProperties properties;
-VkDevice device_;
-VkQueue presentQueue_;
-VkSurfaceKHR surface_;
-VkQueue graphicsQueue_;
-
-/* renderer vars */
-VkCommandBuffer* commandBuffers = NULL;
-unsigned int currentImageIndex;
-
-/* pipeline vars */
-VkPipeline graphicsPipeline;
-VkPipelineLayout pipelineLayout;
-VkDescriptorSetLayout descriptorSetLayout;
-VkDescriptorPool descriptorPool;
-struct Model* squareModel = NULL;
-
-/* rendersystem vars */
-VkDescriptorSet spriteDataDescriptorSet;
-struct Buffer* spriteDataBuffer = NULL;
-
-/* swapchain vars */
-VkSwapchainKHR swapChain;
-VkSwapchainKHR oldSwapChain;
-VkFormat swapChainImageFormat;
-VkFormat swapChainDepthFormat;
-VkRenderPass renderPass;
-VkFramebuffer* swapChainFramebuffers = NULL;
-VkImage* depthImages = NULL;
-VkDeviceMemory* depthImageMemorys = NULL;
-VkImageView* depthImageViews = NULL;
-VkImage* swapChainImages = NULL;
-VkImageView* swapChainImageViews = NULL;
-VkSemaphore imageAvailableSemaphores[ZENGINE_MAX_FRAMES_IN_FLIGHT];
-VkSemaphore renderFinishedSemaphores[ZENGINE_MAX_FRAMES_IN_FLIGHT];
-VkFence inFlightFences[ZENGINE_MAX_FRAMES_IN_FLIGHT];
-VkFence* imagesInFlight = NULL;
-unsigned int currentFrame;
-unsigned int imageCount;
-unsigned int oldImageCount;
-
-/* sprite vars */
-Sprite* sprites = NULL;
-unsigned int spritesSize = 0;
-
-#endif // ZENGINE_IMPLEMENTATION (variables)
 
 /* ZENGINE FORWARD-DECLARED FUNCTIONS */
 void ZEngineInit();
@@ -258,7 +197,7 @@ void ZEngineDeinit();
 
 /* sprite funcs */
 void createSprite(Model* model, unsigned int textureIndex, float positionx, float positiony, float scalex, float scaley, float rotation);
-Sprite* createSpritePtr();
+Sprite* createSpritePtr(Model* model, unsigned int textureIndex, float posx, float posy, float scalex, float scaley, float rotation);
 void deleteSpritePointer(Sprite* sprite);
 void deleteSprite(unsigned int sprite);
 void setRotationMatrix(Sprite* sprite);
@@ -307,6 +246,76 @@ void transitionImageLayout(Texture* texture, VkImageLayout oldLayout, VkImageLay
 void createBuffer(Buffer* buffer, VkDeviceSize instanceSize, unsigned int instanceCount, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags);
 
 #ifdef ZENGINE_IMPLEMENTATION
+/* PRIVATE VARS */
+
+/* kinda just chillin ngl */
+Camera camera;
+ZENGINE_AUDIO;
+
+double deltaTime = 0.0; /* deltaTime, do what you will. Example implementation in main.cpp */
+_Bool ZEngineClose = 0; /* flag to show when the engine is closing */
+#ifdef ZENGINE_SPRITE_MAPMODE_MANUAL
+    _Bool ZEngineSpriteRemap = 1; /* flag to update sprite data buffer with ZENGINE_SPRITE_MAPMODE_MANUAL */
+#endif
+
+/* texture vecs */
+struct Texture* spriteTextures = NULL;
+char* spriteData;
+
+/* window vars */
+_Bool framebufferResized = 0;
+RGFW_window* zwindow = NULL;
+VkExtent2D windowExtent;
+
+/* sprite vars */
+Sprite* sprites = NULL;
+unsigned int spritesSize = 0;
+
+/* device vars */
+VkInstance instance;
+VkCommandPool commandPool;
+VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+VkPhysicalDeviceProperties properties;
+VkDevice device_;
+VkQueue presentQueue_;
+VkSurfaceKHR surface_;
+VkQueue graphicsQueue_;
+
+/* renderer vars */
+VkCommandBuffer* commandBuffers = NULL;
+unsigned int currentImageIndex;
+
+/* pipeline vars */
+VkPipeline graphicsPipeline;
+VkPipelineLayout pipelineLayout;
+VkDescriptorSetLayout descriptorSetLayout;
+VkDescriptorPool descriptorPool;
+struct Model* squareModel = NULL;
+
+/* rendersystem vars */
+VkDescriptorSet spriteDataDescriptorSet;
+struct Buffer* spriteDataBuffer = NULL;
+
+/* swapchain vars */
+VkSwapchainKHR swapChain;
+VkSwapchainKHR oldSwapChain;
+VkFormat swapChainImageFormat;
+VkFormat swapChainDepthFormat;
+VkRenderPass renderPass;
+VkFramebuffer* swapChainFramebuffers = NULL;
+VkImage* depthImages = NULL;
+VkDeviceMemory* depthImageMemorys = NULL;
+VkImageView* depthImageViews = NULL;
+VkImage* swapChainImages = NULL;
+VkImageView* swapChainImageViews = NULL;
+VkSemaphore imageAvailableSemaphores[ZENGINE_MAX_FRAMES_IN_FLIGHT];
+VkSemaphore renderFinishedSemaphores[ZENGINE_MAX_FRAMES_IN_FLIGHT];
+VkFence inFlightFences[ZENGINE_MAX_FRAMES_IN_FLIGHT];
+VkFence* imagesInFlight = NULL;
+unsigned int currentFrame;
+unsigned int imageCount;
+unsigned int oldImageCount;
+
 /* SWAP CHAIN FUNCTIONS */
 void createSwapChain() {
     /* create swapchain KHR */
@@ -811,7 +820,6 @@ QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
             indices.presentFamilyHasValue = 1;
         }
         if (indices.graphicsFamilyHasValue && indices.presentFamilyHasValue) { break; }
-        i++;
     }
     return indices;
 }
@@ -1057,7 +1065,7 @@ VkShaderModule createShaderModule(const char* filepath) {
     VkShaderModule shaderModule;
     if (vkCreateShaderModule(device_, &createInfo, NULL, &shaderModule) != VK_SUCCESS) {
         free(buffer);
-        printf("Failed to create shader module!");
+        ZENGINE_PRINT("Failed to create shader module!");
         exit(1);
     }
 
@@ -1077,7 +1085,7 @@ void createSprite(Model* model, unsigned int textureIndex, float posx, float pos
 #ifdef ZENGINE_DEPTHMODE_FIRST
     sprites[spritesSize].depth = spritesSize / ZENGINE_MAX_SPRITES;
 #else
-    sprites[spritesSize].depth = 1.f - ((float)spritesSize / (float)ZENGINE_MAX_SPRITES);
+    sprites[spritesSize].depth = .999f - ((float)spritesSize * 0.00001f);
 #endif
     sprites[spritesSize].model = model;
     sprites[spritesSize].data = NULL;
@@ -1085,28 +1093,25 @@ void createSprite(Model* model, unsigned int textureIndex, float posx, float pos
     spritesSize++;
 }
 
-Sprite* createSpritePtr() {
+Sprite* createSpritePtr(Model* model, unsigned int textureIndex, float posx, float posy, float scalex, float scaley, float rotation) {
     if (spritesSize >= ZENGINE_MAX_SPRITES) { return NULL; }
-    createSprite(squareModel, 0, 0.f, 0.f, .1f, .1f, 0);
+    createSprite(model, textureIndex, posx, posy, scalex, scaley, rotation);
     return &sprites[spritesSize - 1];
 }
 
 void deleteSpritePointer(Sprite* sprite) {
-    deleteSprite(sprite - sprites); 
+    deleteSprite(sprite - sprites);
 }
 
 void deleteSprite(unsigned int sprite) {
-#ifdef ZENGINE_DEPTHMODE_FIRST
-    for (unsigned int i = sprite; i < spritesSize; i++) {
-        sprites[i] = sprites[i + 1];
-        sprites[i].depth -= 1 / ZENGINE_MAX_SPRITES;
-    }
-#else
     for (unsigned int i = sprite; i < spritesSize - 1; i++) {
         sprites[i] = sprites[i + 1];
-        sprites[i].depth = 1.f - ((float)i / (float)ZENGINE_MAX_SPRITES);
-    }
+#ifdef ZENGINE_DEPTHMODE_FIRST
+        sprites[i].depth -= 1 / ZENGINE_MAX_SPRITES;
+#else
+        sprites[i].depth = .999f - ((float)i * 0.00001f);
 #endif
+    }
 
     sprites[spritesSize - 1].data = NULL;
     spritesSize--;
@@ -1456,15 +1461,15 @@ void ZEngineInit() {
     camera.position[0] = 0.f; camera.position[1] = 0.f;
     camera.aspect      = (float)windowExtent.width / (float)windowExtent.height;
 
-    float* positions = (float*)malloc(8 * 4);
-    positions[0] = -.5f; positions[1] = -.5f; // Bottom left
-    positions[2] =  .5f; positions[3] = -.5f; // Bottom right
-    positions[4] = -.5f; positions[5] =  .5f; // Top right
-    positions[6] =  .5f; positions[7] =  .5f; // Top left
+    float positions[8] = {
+        -.5f, -.5f, // Bottom left
+        .5f, -.5f, // Bottom right
+        -.5f, .5f, // Top right
+        .5f, .5f, // Top left
+    };
  
     squareModel = (Model*)malloc(sizeof(Model));
-    createModel(squareModel, positions, 8);
-    free(positions);
+    createModel(squareModel, positions, 4);
 
 #ifdef __APPLE__
     createBuffer(spriteDataBuffer, SIZEOF_SPRITE_DATA * ZENGINE_MAX_SPRITES, 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -1625,11 +1630,11 @@ void ZEngineDeinit() {
     ZENGINE_PRINT("Freeing window surface\n"); vkDestroySurfaceKHR(instance, surface_, NULL);
     ZENGINE_PRINT("Destroying instance\n"); vkDestroyInstance(instance, NULL);
 #ifndef ZENGINE_DISABLE_AUDIO
-    ZENGINE_PRINT("Deiniting audio"); ma_engine_uninit(&audio);
+    ZENGINE_PRINT("Deiniting audio\n"); ma_engine_uninit(&audio);
 #endif
 }
 
-#endif // ZENGINE_IMPLEMENTATION
 #undef ZENGINE_IMPLEMENTATION
+#endif // ZENGINE_IMPLEMENTATION
 #endif // ZENGINE_H
 
