@@ -4,8 +4,8 @@ was a hobby project a few weeks before release, but i just ported it with graphi
 
 # Clone the repo:
 ```bash
-git clone --depth=1 https://github.com/ZDev22/ZMarble
-cd ZEngine
+git clone --depth=1 https://github.com/ZDev22/ZChess
+cd ZChess
 ```
 # Dependencies:
 ## LINUX:
