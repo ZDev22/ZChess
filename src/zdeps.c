@@ -1,0 +1,48 @@
+/* licensed under GPL v3.0 see https://github.com/ZDev22/ZEngine/blob/main/LICENSE for current license
+
+This file is designed to take the weight of compiling all dependencies away from main.c
+To use along-side zengine.h, use #define ZENGINE_DEPS_DEFINED */
+
+/* vulkan */
+#if defined(__linux__)
+    #define VK_USE_PLATFORM_XLIB_KHR
+#elif defined(__APPLE__)
+    #define VK_USE_PLATFORM_MACOS_MVK
+#elif defined(_WIN32)
+    #define VK_USE_PLATFORM_WIN32_KHR
+#endif
+
+/* RGFW */
+#define RGFW_IMPLEMENTATION
+#define RGFW_NO_X11_CURSOR_PRELOAD
+#define RGFW_NO_X11_EXT_PRELOAD
+#define RGFW_NO_X11_XI_PRELOAD
+#define RGFW_NO_UNIX_CLOCK
+#define RGFW_NO_ALLOCATE_MONITORS
+#define RGFW_VULKAN
+#define RGFW_EXPORT
+#define RGFW_ASSERT(x) (void)(x)
+
+/* STB_IMAGE */
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_ASSERT(x)
+/* disable a bunch of random image types (supported image types are png and jpg) */
+#define STBI_NO_GIF
+#define STBI_NO_HDR
+#define STBI_NO_BMP
+#define STBI_NO_PSD
+#define STBI_NO_TGA
+#define STBI_NO_PIC
+#define STBI_NO_PNM
+#define STBI_NO_LINEAR
+
+/* DEPENDENCIES */
+#include "deps/RGFW.h"
+#include "deps/stb_image.h"
+
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
+
+#undef RGFW_IMPLEMENTATION
+#undef STB_IMAGE_IMPLEMENTATION
+

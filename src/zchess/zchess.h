@@ -21,6 +21,8 @@ unsigned char movementSize              =  0 ; /* keep track of how many items a
 _Bool movingPeice                       =  0 ; /* flag to know if your mvoing a peice */
 _Bool kingMoved[2]                      = {0}; /* keep track if kings have moved, 0 = white, 1 = black */
 unsigned int promotion        = BOARD_SQUARES; /* the position of the promoted pawn */
+Sprite* boardSprites[BOARD_SQUARES]  = {NULL}; /* array of all the sprites for the pieces on the board */
+Sprite* boardSprite                    = NULL; /* the actual board itself, pretty boring */
 
 long long peice  = 0  ;
 unsigned int to  = 0  ;
@@ -64,15 +66,15 @@ float getMouseY() {
     return (((float)y / sizey) * 2.f) - 1.f;
 }
 
-inline unsigned char isPeiceBlack(unsigned int index) { return blackPeice[index]; }
-inline _Bool isOnLeftEdge(void) { return peice % BOARD_SIZE == 0; }
-inline _Bool isOnRightEdge(void) { return peice % BOARD_SIZE == BOARD_SIZE - 1; }
-inline _Bool isOnTop(void) { return peice < BOARD_SIZE; }
-inline _Bool isOnBottom(void) { return peice > (BOARD_SQUARES - BOARD_SIZE) - 1; }
-inline _Bool isTwoFromLeftEdge(void) { return peice % BOARD_SIZE == 1; }
-inline _Bool isTwoFromRightEdge(void) { return peice % BOARD_SIZE == BOARD_SIZE - 2; }
-inline _Bool isTwoFromTop(void) { return peice < BOARD_SIZE * 2; }
-inline _Bool isTwoFromBottom(void) { return peice > (BOARD_SQUARES - BOARD_SIZE * 2) - 1; }
+unsigned char isPeiceBlack(unsigned int index) { return blackPeice[index]; }
+_Bool isOnLeftEdge(void) { return peice % BOARD_SIZE == 0; }
+_Bool isOnRightEdge(void) { return peice % BOARD_SIZE == BOARD_SIZE - 1; }
+_Bool isOnTop(void) { return peice < BOARD_SIZE; }
+_Bool isOnBottom(void) { return peice > (BOARD_SQUARES - BOARD_SIZE) - 1; }
+_Bool isTwoFromLeftEdge(void) { return peice % BOARD_SIZE == 1; }
+_Bool isTwoFromRightEdge(void) { return peice % BOARD_SIZE == BOARD_SIZE - 2; }
+_Bool isTwoFromTop(void) { return peice < BOARD_SIZE * 2; }
+_Bool isTwoFromBottom(void) { return peice > (BOARD_SQUARES - BOARD_SIZE * 2) - 1; }
 
 void initZChess(void) {
     memset(&board[BOARD_SIZE], 1, BOARD_SIZE); /* create black pawns */
@@ -85,52 +87,34 @@ void initZChess(void) {
     memset(blackPeice, 1, BOARD_SQUARES / 2 - 1); /* set black peices */
 
     /* load sprites */
+    boardSprite = createSprite(-.13f, 0.f, 2.01f, 2.f, 0.f, 0);
+
     RGFW_window_getSize(zwindow, &id, NULL);
     float x = -1.f;
     float y = -.88f;
     for (unsigned int i = 0; i < BOARD_SIZE; i++) {
         for (unsigned int j = 0; j < BOARD_SIZE; j++) {
-            if (board[i * BOARD_SIZE + j] == 0) createSprite(squareModel, 1, x, y, .22f, .22f, 0.f);
-            else createSprite(squareModel, board[i * BOARD_SIZE + j] + (isPeiceBlack(i * BOARD_SIZE + j) ? 7 : 1), x, y, .22f, .22f, 0.f);
-            setRotationMatrix(&sprites[spritesSize - 1]);
+            if (board[i * BOARD_SIZE + j] == 0) { boardSprites[(i * BOARD_SIZE) + j] = createSprite(x, y, .22f, .22f, 0.f, 1); }
+            else { boardSprites[(i * BOARD_SIZE) + j] = createSprite(x, y, .22f, .22f, 0.f, board[i * BOARD_SIZE + j] + (isPeiceBlack(i * BOARD_SIZE + j) ? 7 : 1)); }
             x += ((float)(id / BOARD_SIZE) / id) * 2.f;
         }
         x = -1.f;
         y += ((float)(id / BOARD_SIZE) / id) * 2.02f;
     }
 
-    Texture texture;
-    createTexture(&texture, "chessboard.png");
-    updateTexture(0, &texture);
-    createTexture(&texture, "empty.png");
-    updateTexture(1, &texture);
-    createTexture(&texture, "pawn.png");
-    updateTexture(2, &texture);
-    createTexture(&texture, "rook.png");
-    updateTexture(3, &texture);
-    createTexture(&texture, "knight.png");
-    updateTexture(4, &texture);
-    createTexture(&texture, "bishop.png");
-    updateTexture(5, &texture);
-    createTexture(&texture, "queen.png");
-    updateTexture(6, &texture);
-    createTexture(&texture, "king.png");
-    updateTexture(7, &texture);
-    createTexture(&texture, "bpawn.png");
-    updateTexture(8, &texture);
-    createTexture(&texture, "brook.png");
-    updateTexture(9, &texture);
-    createTexture(&texture, "bknight.png");
-    updateTexture(10, &texture);
-    createTexture(&texture, "bbishop.png");
-    updateTexture(11, &texture);
-    createTexture(&texture, "bqueen.png");
-    updateTexture(12, &texture);
-    createTexture(&texture, "bking.png");
-    updateTexture(13, &texture);
-
-    createSprite(squareModel, 0, -.13f, 0.f, 2.01f, 2.f, 0.f);
-    setRotationMatrix(&sprites[spritesSize - 1]);
+    createTexture("assets/img/chessboard.png", 1.f, 0);
+    createTexture("assets/img/pawn.png", 1.f, 2);
+    createTexture("assets/img/rook.png", 1.f, 3);
+    createTexture("assets/img/knight.png", 1.f, 4);
+    createTexture("assets/img/bishop.png", 1.f, 5);
+    createTexture("assets/img/queen.png", 1.f, 6);
+    createTexture("assets/img/king.png", 1.f, 7);
+    createTexture("assets/img/bpawn.png", 1.f, 8);
+    createTexture("assets/img/brook.png", 1.f, 9);
+    createTexture("assets/img/bknight.png", 1.f, 10);
+    createTexture("assets/img/bbishop.png", 1.f, 11);
+    createTexture("assets/img/bqueen.png", 1.f, 12);
+    createTexture("assets/img/bking.png", 1.f, 13);
 }
 
 void addMove(unsigned int move) {
@@ -361,7 +345,7 @@ void movePeice() {
                 if (board[to] == 0 && abs(to - peice) % BOARD_SIZE != 0) { /* the pawn moved to an empty square, but also took */
                     long long pos = isPeiceBlack(peice) ? -BOARD_SIZE : BOARD_SIZE;
                     board[to + pos] = 0;
-                    sprites[to + pos].textureIndex = 1;
+                    boardSprites[to + pos]->textureIndex = 1;
                 }
             }
 
@@ -370,9 +354,9 @@ void movePeice() {
             blackPeice[peice] = 0;
 
             board[to] = board[peice];
-            sprites[to].textureIndex = board[to] + (isPeiceBlack(to) ? 7 : 1);
+            boardSprites[to]->textureIndex = board[to] + (isPeiceBlack(to) ? 7 : 1);
             board[peice] = 0;
-            sprites[peice].textureIndex = 1;
+            boardSprites[peice]->textureIndex = 1;
 
             /* check for promotion */
             promotion = BOARD_SQUARES;
@@ -380,7 +364,7 @@ void movePeice() {
                 if (isPeiceBlack(to)) {
                     if (to > BOARD_SQUARES - BOARD_SIZE - 1) {
                         board[to] = 5;
-                        sprites[to].textureIndex = 12;
+                        boardSprites[to]->textureIndex = 12;
                         promotion = to;
                         RGFW_window_setName(zwindow, "PROMOTION! 0 = pawn, 1 = rook, 2 = bishop, 3 = knight, 4 = queen, 5 = king");
                     }
@@ -388,7 +372,7 @@ void movePeice() {
                 else {
                     if (to < BOARD_SIZE) {
                         board[to] = 5;
-                        sprites[to].textureIndex = 6;
+                        boardSprites[to]->textureIndex = 6;
                         promotion = to;
                         RGFW_window_setName(zwindow, "PROMOTION! 0 = pawn, 1 = rook, 2 = bishop, 3 = knight, 4 = queen, 5 = king");
                     }
@@ -403,17 +387,17 @@ void movePeice() {
                     if (isPeiceBlack(to)) {
                         if (to - peice > 0) { /* king moved left, move left rook */
                             board[BOARD_SIZE - 1] = 0;
-                            sprites[BOARD_SIZE - 1].textureIndex = 1;
+                            boardSprites[BOARD_SIZE - 1]->textureIndex = 1;
                             board[to - 1] = 2;
-                            sprites[to - 1].textureIndex = 9;
+                            boardSprites[to - 1]->textureIndex = 9;
                             blackPeice[to - 1] = 1;
                             blackPeice[BOARD_SIZE - 1] = 0;
                         }
                         else { /* king moved left, move right rook */
                             board[0] = 0;
-                            sprites[0].textureIndex = 1;
+                            boardSprites[0]->textureIndex = 1;
                             board[to + 1] = 2;
-                            sprites[to + 1].textureIndex = 9;
+                            boardSprites[to + 1]->textureIndex = 9;
                             blackPeice[to + 1] = 1;
                             blackPeice[0] = 0;
                         }
@@ -421,15 +405,15 @@ void movePeice() {
                     else {
                         if (to - peice > 0) { /* king moved left, move left rook */
                             board[BOARD_SQUARES - 1] = (BOARD_SQUARES - 1) % 2;
-                            sprites[BOARD_SQUARES - 1].textureIndex = 1;
+                            boardSprites[BOARD_SQUARES - 1]->textureIndex = 1;
                             board[to - 1] = 2;
-                            sprites[to - 1].textureIndex = 3;
+                            boardSprites[to - 1]->textureIndex = 3;
                         }
                         else { /* king moved left, move right rook */
                             board[BOARD_SQUARES - BOARD_SIZE] = (BOARD_SQUARES - BOARD_SIZE) % 2;
-                            sprites[BOARD_SQUARES - BOARD_SIZE].textureIndex = 1;
+                            boardSprites[BOARD_SQUARES - BOARD_SIZE]->textureIndex = 1;
                             board[to + 1] = 2;
-                            sprites[to + 1].textureIndex = 3;
+                            boardSprites[to + 1]->textureIndex = 3;
                         }
                     }
                 }
@@ -458,61 +442,52 @@ unsigned int squareClicked() {
     return (unsigned int)((((getMouseX(camera.aspect) + 1.125f) * 1.13f) * BOARD_SIZE) / 2.25f) + (unsigned int)((getMouseY() + 1.f) * BOARD_SIZE / 2) * BOARD_SIZE;
 }
 
-void zchessTick() {
+void tickZChess() {
     if (RGFW_isMousePressed(RGFW_mouseLeft)) { /* select peice */
-        RGFW_window_setName(zwindow, "ZChess");
         peice = squareClicked();
         checkPeice(peice);
 
-        posx = sprites[peice].position[0];
-        posy = sprites[peice].position[1];
+        posx = boardSprites[peice]->position[0];
+        posy = boardSprites[peice]->position[1];
     }
     else if (RGFW_isMouseDown(RGFW_mouseLeft)) { /* drag peice */
-        sprites[peice].position[0] = getMouseX(camera.aspect);
-        sprites[peice].position[1] = getMouseY();
-        ZEngineSpriteRemap = 1;
+        boardSprites[peice]->position[0] = getMouseX(camera.aspect);
+        boardSprites[peice]->position[1] = getMouseY();
     }
     else if (RGFW_isMouseReleased(RGFW_mouseLeft)) { /* place peice */
-        sprites[peice].position[0] = posx;
-        sprites[peice].position[1] = posy;
+        boardSprites[peice]->position[0] = posx;
+        boardSprites[peice]->position[1] = posy;
 
         to = squareClicked();
         movePeice();
         lastMove = (unsigned int)peice + ((unsigned long long)to << 32);
-        ZEngineSpriteRemap = 1;
     }
     else if (promotion != BOARD_SQUARES) {
-        if (RGFW_isKeyPressed(RGFW_0)) {
+        if (RGFW_isKeyPressed(RGFW_key0)) {
             board[promotion] = 1;
-            sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 8 : 2;
-            ZEngineSpriteRemap = 1;
+            boardSprites[promotion]->textureIndex = isPeiceBlack(promotion) ? 8 : 2;
         }
-        else if (RGFW_isKeyPressed(RGFW_1)) {
+        else if (RGFW_isKeyPressed(RGFW_key1)) {
             board[promotion] = 2;
-            sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 9 : 3;
-            ZEngineSpriteRemap = 1;
+            boardSprites[promotion]->textureIndex = isPeiceBlack(promotion) ? 9 : 3;
         }
-        else if (RGFW_isKeyPressed(RGFW_2)) {
+        else if (RGFW_isKeyPressed(RGFW_key2)) {
             board[promotion] = 3;
-            sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 10 : 4;
-            ZEngineSpriteRemap = 1;
+            boardSprites[promotion]->textureIndex = isPeiceBlack(promotion) ? 10 : 4;
         }
-        else if (RGFW_isKeyPressed(RGFW_3)) {
+        else if (RGFW_isKeyPressed(RGFW_key3)) {
             board[promotion] = 4;
-            sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 11 : 5;
-            ZEngineSpriteRemap = 1;
+            boardSprites[promotion]->textureIndex = isPeiceBlack(promotion) ? 11 : 5;
         }
-        else if (RGFW_isKeyPressed(RGFW_4)) {
+        else if (RGFW_isKeyPressed(RGFW_key4)) {
             board[promotion] = 5;
-            sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 12 : 6;
-            ZEngineSpriteRemap = 1;
+            boardSprites[promotion]->textureIndex = isPeiceBlack(promotion) ? 12 : 6;
         }
-        else if (RGFW_isKeyPressed(RGFW_5)) {
+        else if (RGFW_isKeyPressed(RGFW_key5)) {
             board[promotion] = 6;
-            sprites[promotion].textureIndex = isPeiceBlack(promotion) ? 13 : 7;
-            ZEngineSpriteRemap = 1;
+            boardSprites[promotion]->textureIndex = isPeiceBlack(promotion) ? 13 : 7;
         }
     }
 }
 
-#endif // ZCHESS_HPP
+#endif // ZCHESS_H
